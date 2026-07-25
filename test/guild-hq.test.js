@@ -229,3 +229,16 @@ test('weekly placements are calculated from scores with competition ranking', ()
   assert.equal(patch.ourPlacement, 4);
   assert.equal(patch.competitors.find(r => r.id === 'r1').placement, 1);
 });
+
+test('weekly competitor sorting uses computed placement values', () => {
+  const { ui, sortWeekCompetitorRows } = loadGuildHq();
+  ui.sort.weekCompetitors = { key: 'placement', dir: 1 };
+  const placements = new Map([['ours', 2], ['r1', 1], ['r2', 3]]);
+  const rows = sortWeekCompetitorRows([
+    { id: 'ours', name: 'Our Guild', score: 900 },
+    { id: 'r2', name: 'Last Guild', score: 700 },
+    { id: 'r1', name: 'Top Guild', score: 1000 },
+  ], placements);
+
+  assert.equal(rows.map(r => r.id).join(','), 'r1,ours,r2');
+});

@@ -131,6 +131,9 @@
     .bar.ours .name { font-weight: 800; color: var(--accent); }
     .bar .place { flex: 0 0 38px; font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums; }
     .bar .val { flex: 0 0 56px; text-align: right; font-variant-numeric: tabular-nums; }
+    .scoregraph .bar { margin: 10px 0; }
+    .scoregraph .track { height: 24px; border-radius: 8px; }
+    .scoregraph .fill { border-radius: 8px; min-width: 8px; }
     #toast { position: fixed; left: 50%; bottom: calc(var(--nav-h) + 18px); transform: translateX(-50%) translateY(20px); background: var(--ink); color: var(--bg); padding: 10px 18px; border-radius: 99px; font-size: .85rem; font-weight: 600; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 50; max-width: 90vw; }
     #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
     #toast.error { background: var(--danger); color: #fff; }
@@ -1319,11 +1322,15 @@ function autoPlacementPatch(c, competitors, ourScore) {
 
 function sortWeekCompetitorRows(rows, placements = new Map()) {
   const { key, dir } = ui.sort.weekCompetitors;
-  const val = r => ({ name: r.name, score: r.score, rankTitle: r.rankTitle, placement: placements.get(r.id) ?? r.placement })[key];
+  const place = r => placements.get(r.id) ?? r.placement;
+  const val = r => ({ name: r.name, score: r.score, rankTitle: r.rankTitle, placement: place(r) })[key];
   return rows.sort((a, b) =>
     dir * cmp(val(a), val(b)) ||
-    (key === 'placement' ? cmp(b.score, a.score) : cmp(a.placement, b.placement)) ||
+    (key === 'placement' ? cmp(b.score, a.score) : cmp(place(a), place(b))) ||
     cmp(a.name, b.name));
+}
+function scoreBarColor(i) {
+  return ['#c95f7d', '#5f8a5e', '#5a78c9', '#c99a3a', '#8d63b8', '#d7784f', '#4b9d9a', '#b35f86', '#6f7f4f', '#7b78c9'][i % 10];
 }
 
 function ensureWeekDraft(c) {
@@ -1378,10 +1385,11 @@ function renderWeekDetail(id) {
   const placements = weeklyPlacementMap(c, displayOurScore);
 
   const rivals = sortWeekCompetitorRows([...(c.competitors || [])], placements);
-  const entries = [
-    { id: 'ours', name: state.data.settings.guildName, score: displayOurScore, ours: true },
-    ...(c.competitors || []).map(r => ({ id: r.id, name: r.name, score: r.score, ours: false })),
-  ]
+  const allCompetitors = [
+    { id: 'ours', name: state.data.settings.guildName, score: displayOurScore, rankTitle: c.ourRankTitle, placement: c.ourPlacement, ours: true },
+    ...(c.competitors || []).map(r => ({ ...r, ours: false })),
+  ];
+  const entries = allCompetitors
     .filter(e => e.score !== null && e.score !== undefined)
     .sort((a, b) => cmp(placements.get(a.id), placements.get(b.id)) || cmp(b.score, a.score) || cmp(a.name, b.name));
   const maxScore = Math.max(1, ...entries.map(e => e.score));
@@ -1405,13 +1413,15 @@ function renderWeekDetail(id) {
     ${entries.length > 1 ? `
     <div class="card">
       <h2 style="margin-top:0">Score comparison</h2>
-      ${entries.map(e => `
+      <div class="scoregraph">
+      ${entries.map((e, i) => `
         <div class="bar ${e.ours ? 'ours' : ''}">
           <span class="place">${ordinal(placements.get(e.id))}</span>
           <span class="name">${esc(e.name)}</span>
-          <span class="track"><span class="fill" style="width:${Math.round(100 * e.score / maxScore)}%"></span></span>
+          <span class="track"><span class="fill" style="width:${Math.max(3, Math.round(100 * e.score / maxScore))}%;background:${scoreBarColor(i)}"></span></span>
           <span class="val">${fmtNum(e.score)}</span>
         </div>`).join('')}
+      </div>
     </div>` : ''}
     <div class="card">
       <h2 style="margin-top:0">Results</h2>
@@ -1423,15 +1433,9 @@ function renderWeekDetail(id) {
           <th data-key="placement" class="${sortArrow('weekCompetitors', 'placement')}">Place</th>
         </tr></thead>
         <tbody>
-          <tr class="highlight">
-            <td>${esc(state.data.settings.guildName)}</td>
-            <td data-week-our-score>${fmtNum(displayOurScore)}</td>
-            <td>${esc(c.ourRankTitle || '—')}</td>
-            <td>${ordinal(placements.get('ours') ?? c.ourPlacement)}</td>
-          </tr>
-          ${rivals.map(r => `
-          <tr class="${isAdmin() ? 'rowlink' : ''}" data-rival="${r.id}">
-            <td>${esc(r.name)}</td><td>${fmtNum(r.score)}</td>
+          ${sortWeekCompetitorRows(allCompetitors, placements).map(r => `
+          <tr class="${r.ours ? 'highlight' : (isAdmin() ? 'rowlink' : '')}" ${r.ours ? '' : `data-rival="${r.id}"`}>
+            <td>${esc(r.name)}</td><td ${r.ours ? 'data-week-our-score' : ''}>${fmtNum(r.score)}</td>
             <td>${esc(r.rankTitle || '—')}</td><td>${ordinal(placements.get(r.id) ?? r.placement)}</td>
           </tr>`).join('')}
         </tbody></table></div>
