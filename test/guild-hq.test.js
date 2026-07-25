@@ -31,6 +31,8 @@ globalThis.__guildHq = {
   guildPotential,
   bestPotentialFlower,
   memberResultsScoreSummary,
+  weeklyPlacementMap,
+  autoPlacementPatch,
 };
 `);
   assert.notEqual(script, match[1], 'test loader should replace browser boot code');
@@ -205,4 +207,25 @@ test('week score tally sums saved and draft member scores', () => {
   const summary = memberResultsScoreSummary(mergedMemberResultsForSave(state.data.competitions[0]));
   assert.equal(summary.hasScores, true);
   assert.equal(summary.total, 333);
+});
+
+test('weekly placements are calculated from scores with competition ranking', () => {
+  const { weeklyPlacementMap, autoPlacementPatch } = loadGuildHq();
+  const c = {
+    competitors: [
+      { id: 'r1', name: 'One', score: 900, placement: null },
+      { id: 'r2', name: 'Two', score: 800, placement: null },
+      { id: 'r3', name: 'Three', score: 800, placement: null },
+    ],
+  };
+
+  const placements = weeklyPlacementMap(c, 1000);
+  assert.equal(placements.get('ours'), 1);
+  assert.equal(placements.get('r1'), 2);
+  assert.equal(placements.get('r2'), 3);
+  assert.equal(placements.get('r3'), 3);
+
+  const patch = autoPlacementPatch(c, c.competitors, 750);
+  assert.equal(patch.ourPlacement, 4);
+  assert.equal(patch.competitors.find(r => r.id === 'r1').placement, 1);
 });

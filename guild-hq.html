@@ -425,6 +425,7 @@ function sanitizeCompetitionPatch(body, existing) {
       id: typeof r.id === 'string' && r.id ? r.id : uuid(),
       name: str(r.name, 80), score: optNum(r.score),
       rankTitle: str(r.rankTitle, 60), placement: optNum(r.placement),
+      notes: str(r.notes, 2000),
       estimate: sanitizeEstimate(r.estimate),
     })).filter(r => r.name);
   }
@@ -874,22 +875,17 @@ function renderSummaryTable() {
     <table data-sortview="summary">
       <thead><tr>
         <th data-key="name" class="${sortArrow('summary', 'name')}">Member</th>
-        <th data-key="role" class="${sortArrow('summary', 'role')}">Role</th>
+        <th data-key="topFlower" class="${sortArrow('summary', 'topFlower')}">Top 5 highest point flowers</th>
         <th data-key="potential" class="${sortArrow('summary', 'potential')}">Max potential</th>
         <th data-key="flowers" class="${sortArrow('summary', 'flowers')}">Flowers</th>
         <th data-key="timezone" class="${sortArrow('summary', 'timezone')}">Timezone</th>
-        <th data-key="topFlower" class="${sortArrow('summary', 'topFlower')}">Top 5 highest point flowers</th>
       </tr></thead>
       <tbody>${members.map(m => {
         const top = topMemberFlowers(m);
         const potential = memberPotential(m);
         return `
           <tr class="rowlink" data-go="#/members/${m.id}">
-            <td><strong>${esc(m.name)}</strong>${m.active ? '' : ' <span class="muted small">(inactive)</span>'}<br>${floristRankTag(potential)}</td>
-            <td>${roleTag(m.role)}</td>
-            <td><strong>${fmtNum(potential)}</strong>${m.potentialOverride != null ? ' <span class="badge">manual</span>' : ''}</td>
-            <td>${(m.flowerIds || []).length}</td>
-            <td>${esc(m.timezone || '—')}</td>
+            <td><strong>${esc(m.name)}</strong>${m.active ? '' : ' <span class="muted small">(inactive)</span>'}<br>${roleTag(m.role)}<br>${floristRankTag(potential)}</td>
             <td class="wrap">
               ${top.length ? `<div class="flowerlist">${top.map(item => `
                 <span class="flowerpill">
@@ -899,6 +895,9 @@ function renderSummaryTable() {
                   ${item.bonus ? `<span class="muted small">+${fmtNum(item.bonus)}</span>` : ''}
                 </span>`).join('')}</div>` : '<span class="muted">No flowers recorded.</span>'}
             </td>
+            <td><strong>${fmtNum(potential)}</strong>${m.potentialOverride != null ? ' <span class="badge">manual</span>' : ''}</td>
+            <td>${(m.flowerIds || []).length}</td>
+            <td>${esc(m.timezone || '—')}</td>
           </tr>`;
       }).join('')}</tbody>
     </table>
@@ -1286,9 +1285,35 @@ function renderWeeks() {
   });
 }
 
-function sortWeekCompetitorRows(rows) {
+function weeklyPlacementMap(c, ourScore) {
+  const entries = [
+    { id: 'ours', score: ourScore },
+    ...(c.competitors || []).map(r => ({ id: r.id, score: r.score })),
+  ]
+    .filter(r => r.score !== null && r.score !== undefined)
+    .sort((a, b) => cmp(b.score, a.score));
+  const placements = new Map();
+  let lastScore = null, place = 0;
+  entries.forEach((entry, index) => {
+    if (lastScore === null || Number(entry.score) !== Number(lastScore)) place = index + 1;
+    placements.set(entry.id, place);
+    lastScore = entry.score;
+  });
+  return placements;
+}
+function autoPlacementPatch(c, competitors, ourScore) {
+  const placements = weeklyPlacementMap({ ...c, competitors }, ourScore);
+  const patch = {
+    competitors: competitors.map(r => ({ ...r, placement: placements.get(r.id) ?? r.placement })),
+  };
+  const ourPlacement = placements.get('ours');
+  if (ourPlacement !== undefined) patch.ourPlacement = ourPlacement;
+  return patch;
+}
+
+function sortWeekCompetitorRows(rows, placements = new Map()) {
   const { key, dir } = ui.sort.weekCompetitors;
-  const val = r => ({ name: r.name, score: r.score, rankTitle: r.rankTitle, placement: r.placement })[key];
+  const val = r => ({ name: r.name, score: r.score, rankTitle: r.rankTitle, placement: placements.get(r.id) ?? r.placement })[key];
   return rows.sort((a, b) =>
     dir * cmp(val(a), val(b)) ||
     (key === 'placement' ? cmp(b.score, a.score) : cmp(a.placement, b.placement)) ||
@@ -1344,6 +1369,7 @@ function renderWeekDetail(id) {
   if (!c) { location.hash = '#/weeks'; return; }
   ensureWeekDraft(c);
   const displayOurScore = currentWeekOurScore(c);
+  const placements = weeklyPlacementMap(c, displayOurScore);
 
   const entries = [
     { name: state.data.settings.guildName, score: displayOurScore, ours: true },
@@ -1351,7 +1377,7 @@ function renderWeekDetail(id) {
   ].filter(e => e.score !== null && e.score !== undefined).sort((a, b) => b.score - a.score);
   const maxScore = Math.max(1, ...entries.map(e => e.score));
 
-  const rivals = sortWeekCompetitorRows([...(c.competitors || [])]);
+  const rivals = sortWeekCompetitorRows([...(c.competitors || [])], placements);
 
   const withData = new Set([...(c.memberResults || []).map(r => r.memberId), ...Object.keys(ui.weekDraft.results)]);
   const resultMembers = state.data.members.filter(m => m.active || withData.has(m.id)).sort((a, b) => cmp(a.name, b.name));
@@ -1363,7 +1389,7 @@ function renderWeekDetail(id) {
     <div class="card">
       <h2 style="margin-top:0">Our result</h2>
       <p>Score <strong data-week-our-score>${fmtNum(displayOurScore)}</strong>
-        · Placement <strong>${ordinal(c.ourPlacement)}</strong>
+        · Placement <strong>${ordinal(placements.get('ours') ?? c.ourPlacement)}</strong>
         ${c.ourRankTitle ? `· ${esc(c.ourRankTitle)}` : ''}</p>
       ${c.notes ? `<p class="muted" style="white-space:pre-wrap">${esc(c.notes)}</p>` : ''}
       ${isAdmin() ? `<button class="btn small" id="editweek">Edit</button>
@@ -1393,12 +1419,12 @@ function renderWeekDetail(id) {
             <td>${esc(state.data.settings.guildName)}</td>
             <td data-week-our-score>${fmtNum(displayOurScore)}</td>
             <td>${esc(c.ourRankTitle || '—')}</td>
-            <td>${ordinal(c.ourPlacement)}</td>
+            <td>${ordinal(placements.get('ours') ?? c.ourPlacement)}</td>
           </tr>
           ${rivals.map(r => `
           <tr class="${isAdmin() ? 'rowlink' : ''}" data-rival="${r.id}">
             <td>${esc(r.name)}</td><td>${fmtNum(r.score)}</td>
-            <td>${esc(r.rankTitle || '—')}</td><td>${ordinal(r.placement)}</td>
+            <td>${esc(r.rankTitle || '—')}</td><td>${ordinal(placements.get(r.id) ?? r.placement)}</td>
           </tr>`).join('')}
         </tbody></table></div>
       ${rivals.length ? '' : '<p class="muted small">No rival guilds logged for this week yet.</p>'}
@@ -1458,7 +1484,9 @@ function renderWeekDetail(id) {
   $('#saveresults')?.addEventListener('click', () => {
     const memberResults = mergedMemberResultsForSave(c);
     const score = memberResultsScoreSummary(memberResults);
-    const body = score.hasScores ? { memberResults, ourScore: score.total } : { memberResults };
+    const body = score.hasScores
+      ? { memberResults, ourScore: score.total, ...autoPlacementPatch(c, c.competitors || [], score.total) }
+      : { memberResults };
     if (commit(() => store.updateCompetition(c.id, body), 'Results saved')) ui.weekDraft = { compId: null, results: {} };
   });
   $('#exportcsv')?.addEventListener('click', () => {
@@ -1497,17 +1525,20 @@ function weekFormDialog(c) {
   dlg.querySelector('#wform').addEventListener('submit', e => {
     e.preventDefault();
     const f = new FormData(e.target);
+    const ourScore = f.get('ourScore') || null;
+    const auto = autoPlacementPatch(c, c.competitors || [], optNum(ourScore));
     const ok = commit(() => store.updateCompetition(c.id, {
       weekStart: f.get('weekStart'), weekEnd: f.get('weekEnd'),
-      ourScore: f.get('ourScore') || null, ourRankTitle: f.get('ourRankTitle'),
-      ourPlacement: f.get('ourPlacement') || null, notes: f.get('notes'),
+      ourScore, ourRankTitle: f.get('ourRankTitle'),
+      ourPlacement: auto.ourPlacement ?? (f.get('ourPlacement') || null), notes: f.get('notes'),
+      competitors: auto.competitors,
     }), 'Week saved');
     if (ok) dlg.close();
   });
 }
 
 function rivalFormDialog(c, rival) {
-  const r = rival || { name: '', score: null, rankTitle: '', placement: null };
+  const r = rival || { name: '', score: null, rankTitle: '', placement: null, notes: '' };
   const dlg = openDialog(`
     <h2>${rival ? 'Edit rival' : 'Add rival guild'}</h2>
     <form id="rform">
@@ -1521,6 +1552,8 @@ function rivalFormDialog(c, rival) {
         <div><label>Rank title</label><input name="rankTitle" value="${esc(r.rankTitle)}"></div>
         <div><label>Placement</label><input type="number" name="placement" min="1" max="10" value="${r.placement ?? ''}"></div>
       </div>
+      <label>Notes</label>
+      <textarea name="notes" placeholder="Anything useful to remember about this guild">${esc(r.notes)}</textarea>
       <button class="btn">${rival ? 'Save' : 'Add'}</button>
       ${rival ? '<button class="btn danger" type="button" id="delrival">Delete</button>' : ''}
       <button class="btn secondary" type="button" data-close>Cancel</button>
@@ -1529,14 +1562,14 @@ function rivalFormDialog(c, rival) {
   dlg.querySelector('#rform').addEventListener('submit', e => {
     e.preventDefault();
     const f = new FormData(e.target);
-    const entry = { id: rival?.id, name: f.get('name'), score: f.get('score') || null, rankTitle: f.get('rankTitle'), placement: f.get('placement') || null, estimate: rival?.estimate ?? null };
+    const entry = { id: rival?.id, name: f.get('name'), score: f.get('score') || null, rankTitle: f.get('rankTitle'), placement: f.get('placement') || null, notes: f.get('notes'), estimate: rival?.estimate ?? null };
     const competitors = rival ? (c.competitors || []).map(x => x.id === rival.id ? entry : x) : [...(c.competitors || []), entry];
-    const ok = commit(() => store.updateCompetition(c.id, { competitors }), rival ? 'Rival saved' : 'Rival added');
+    const ok = commit(() => store.updateCompetition(c.id, autoPlacementPatch(c, competitors, currentWeekOurScore(c))), rival ? 'Rival saved' : 'Rival added');
     if (ok) dlg.close();
   });
   dlg.querySelector('#delrival')?.addEventListener('click', () => {
     const competitors = (c.competitors || []).filter(x => x.id !== rival.id);
-    if (commit(() => store.updateCompetition(c.id, { competitors }), 'Rival removed')) dlg.close();
+    if (commit(() => store.updateCompetition(c.id, autoPlacementPatch(c, competitors, currentWeekOurScore(c))), 'Rival removed')) dlg.close();
   });
 }
 
@@ -1623,6 +1656,7 @@ function renderRivalsTable() {
         <h2 style="margin-top:0">${esc(last.r.name)}</h2>
         <p>Faced <strong>${allRows.length}×</strong> · best score <strong>${fmtNum(best)}</strong> · avg <strong>${fmtNum(avg)}</strong></p>
         <p class="muted">Last met ${esc(weekLabel(last.comp))}: scored ${fmtNum(last.r.score)}, placed ${ordinal(last.r.placement)}${last.r.rankTitle ? ` (${esc(last.r.rankTitle)})` : ''}.</p>
+        ${last.r.notes ? `<p class="muted" style="white-space:pre-wrap">${esc(last.r.notes)}</p>` : ''}
       </div>`;
   }
 
