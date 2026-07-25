@@ -59,6 +59,9 @@
     .chip { display: inline-flex; align-items: center; gap: 5px; background: var(--leaf-soft); color: var(--leaf); border-radius: 99px; padding: 3px 10px; font-size: .78rem; font-weight: 600; margin: 2px 4px 2px 0; }
     .chip.rose { background: var(--accent-soft); color: var(--accent); }
     .chip button { all: unset; cursor: pointer; font-weight: 800; padding: 0 2px; }
+    .flowerlist { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-width: 240px; }
+    .flowerpill { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); border-radius: 99px; padding: 3px 9px; background: var(--bg); font-size: .78rem; white-space: nowrap; }
+    .flowerpill strong { font-variant-numeric: tabular-nums; }
     /* colour-coded labels: member roles, flower rarities, florist ranks */
     .tag { display: inline-flex; align-items: center; gap: 4px; border-radius: 99px; padding: 2px 9px; font-size: .72rem; font-weight: 700; letter-spacing: .01em; white-space: nowrap; vertical-align: middle; }
     .tag-red      { background: #fbe3e0; color: #ad3a31; }
@@ -621,6 +624,7 @@ function csvCell(v) {
 const TABS = [
   { hash: '#/dashboard', label: 'Home', ico: '🏠' },
   { hash: '#/members', label: 'Members', ico: '👥' },
+  { hash: '#/summary', label: 'Summary', ico: '📋' },
   { hash: '#/flowers', label: 'Flowers', ico: '🌸' },
   { hash: '#/weeks', label: 'Weeks', ico: '🏆' },
   { hash: '#/rivals', label: 'Rivals', ico: '⚔️' },
@@ -796,6 +800,82 @@ function renderMembers() {
   $('#mrole').addEventListener('change', e => { ui.filters.membersRole = e.target.value; renderMembersTable(); });
   $('#minactive').addEventListener('change', e => { ui.filters.showInactive = e.target.checked; renderMembersTable(); });
   $('#addmember')?.addEventListener('click', () => memberFormDialog(null));
+}
+
+// ------------------------------------------------------------- summary ----
+
+function topMemberFlowers(m, limit = 5) {
+  return (m.flowerIds || [])
+    .map(flowerById)
+    .filter(Boolean)
+    .map(f => ({ flower: f, bonus: flowerBonus(m, f.id), total: (f.points || 0) + flowerBonus(m, f.id) }))
+    .sort((a, b) => cmp(b.total, a.total) || cmp(b.flower.points || 0, a.flower.points || 0) || cmp(a.flower.name, b.flower.name))
+    .slice(0, limit);
+}
+
+function renderSummary() {
+  const members = [...state.data.members].sort((a, b) => cmp(a.name, b.name));
+  const activeCount = members.filter(m => m.active).length;
+  const withFlowers = members.filter(m => (m.flowerIds || []).length).length;
+  const topFlowerTotal = members.reduce((sum, m) => sum + topMemberFlowers(m).reduce((n, item) => n + item.total, 0), 0);
+
+  app().innerHTML = chrome(`
+    <h1>Member flower summary</h1>
+    <div class="cardgrid">
+      <div class="card stat">
+        <div class="num">${members.length}</div>
+        <div class="lbl">Members</div>
+        <div class="sub">${activeCount} active</div>
+      </div>
+      <div class="card stat">
+        <div class="num">${withFlowers}</div>
+        <div class="lbl">With flowers</div>
+        <div class="sub">${members.length - withFlowers} without flowers</div>
+      </div>
+      <div class="card stat">
+        <div class="num">${fmtNum(topFlowerTotal)}</div>
+        <div class="lbl">Top 5 total</div>
+        <div class="sub">including bonuses</div>
+      </div>
+      <div class="card stat">
+        <div class="num">${state.data.flowers.length}</div>
+        <div class="lbl">Catalogue</div>
+        <div class="sub">flower types</div>
+      </div>
+    </div>
+    ${members.length ? `
+      <div class="tablewrap">
+      <table>
+        <thead><tr>
+          <th>Member</th>
+          <th>Role</th>
+          <th>Flowers</th>
+          <th>Top 5 highest point flowers</th>
+        </tr></thead>
+        <tbody>${members.map(m => {
+          const top = topMemberFlowers(m);
+          return `
+            <tr class="rowlink" data-go="#/members/${m.id}">
+              <td>${esc(m.name)}${m.active ? '' : ' <span class="muted small">(inactive)</span>'}</td>
+              <td>${roleTag(m.role)}</td>
+              <td>${(m.flowerIds || []).length}</td>
+              <td class="wrap">
+                ${top.length ? `<div class="flowerlist">${top.map(item => `
+                  <span class="flowerpill">
+                    ${esc(item.flower.name)}
+                    ${rarityTag(item.flower.rarity)}
+                    <strong>${fmtNum(item.total)}</strong>
+                    ${item.bonus ? `<span class="muted small">+${fmtNum(item.bonus)}</span>` : ''}
+                  </span>`).join('')}</div>` : '<span class="muted">No flowers recorded.</span>'}
+              </td>
+            </tr>`;
+        }).join('')}</tbody>
+      </table>
+      </div>`
+      : `<div class="empty"><div class="big">📋</div>No members yet.</div>`}
+  `, '#/summary');
+  bindChrome();
+  document.querySelectorAll('[data-go]').forEach(tr => tr.addEventListener('click', () => { location.hash = tr.dataset.go; }));
 }
 
 function memberFormDialog(member) {
@@ -1782,6 +1862,7 @@ function render() {
   window.scrollTo(0, 0);
   switch (view) {
     case 'members': id ? renderMemberDetail(id) : renderMembers(); break;
+    case 'summary': renderSummary(); break;
     case 'flowers': renderFlowers(); break;
     case 'weeks': id ? renderWeekDetail(id) : renderWeeks(); break;
     case 'rivals': renderRivals(); break;
