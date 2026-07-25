@@ -1410,19 +1410,20 @@ function renderWeekDetail(id) {
       ${isAdmin() ? `<button class="btn small" id="editweek">Edit</button>
         <button class="btn danger small" id="delweek">Delete week</button>` : ''}
     </div>
-    ${entries.length > 1 ? `
     <div class="card">
       <h2 style="margin-top:0">Score comparison</h2>
-      <div class="scoregraph">
-      ${entries.map((e, i) => `
-        <div class="bar ${e.ours ? 'ours' : ''}">
-          <span class="place">${ordinal(placements.get(e.id))}</span>
-          <span class="name">${esc(e.name)}</span>
-          <span class="track"><span class="fill" style="width:${Math.max(3, Math.round(100 * e.score / maxScore))}%;background:${scoreBarColor(i)}"></span></span>
-          <span class="val">${fmtNum(e.score)}</span>
-        </div>`).join('')}
-      </div>
-    </div>` : ''}
+      ${entries.length ? `
+        <div class="scoregraph">
+        ${entries.map((e, i) => `
+          <div class="bar ${e.ours ? 'ours' : ''}">
+            <span class="place">${ordinal(placements.get(e.id))}</span>
+            <span class="name">${esc(e.name)}</span>
+            <span class="track"><span class="fill" style="width:${Math.max(3, Math.round(100 * e.score / maxScore))}%;background:${scoreBarColor(i)}"></span></span>
+            <span class="val">${fmtNum(e.score)}</span>
+          </div>`).join('')}
+        </div>`
+        : '<p class="muted">Enter scores in Results or Member results to draw the comparison graph.</p>'}
+    </div>
     <div class="card">
       <h2 style="margin-top:0">Results</h2>
       <div class="tablewrap"><table data-sortview="weekCompetitors">
