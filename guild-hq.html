@@ -162,7 +162,7 @@ const ui = {
   sort: {
     members: { key: 'name', dir: 1 },
     memberFlowers: { key: 'rarity', dir: -1 },
-    flowers: { key: 'name', dir: 1 },
+    flowers: { key: 'points', dir: -1 },
     rivals: { key: 'date', dir: -1 },
     weekCompetitors: { key: 'score', dir: -1 },
   },
@@ -305,6 +305,10 @@ function flowerById(id) { return state.data.flowers.find(f => f.id === id); }
 function memberById(id) { return state.data.members.find(m => m.id === id); }
 function flowerOwners(flowerId) {
   return state.data.members.filter(m => (m.flowerIds || []).includes(flowerId));
+}
+function firstFlowerOwnerName(flowerId) {
+  const owners = flowerOwners(flowerId).map(m => m.name).sort((a, b) => cmp(a, b));
+  return owners[0] || null;
 }
 function ownedFlowerIds() {
   return new Set(state.data.members.flatMap(m => m.flowerIds || []));
@@ -1066,7 +1070,7 @@ function renderFlowersTable() {
     (!q || f.name.toLowerCase().includes(q)));
   const { key, dir } = ui.sort.flowers;
   const val = f => ({ name: f.name, rarity: rarityRank(f.rarity), points: f.points, owners: flowerOwners(f.id).length })[key];
-  rows.sort((a, b) => dir * cmp(val(a), val(b)));
+  rows.sort((a, b) => dir * cmp(val(a), val(b)) || cmp(firstFlowerOwnerName(a.id), firstFlowerOwnerName(b.id)) || cmp(a.name, b.name));
 
   $('#flowers-table').innerHTML = rows.length ? `
     <div class="tablewrap">
