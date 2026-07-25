@@ -26,6 +26,7 @@ globalThis.__guildHq = {
   firstFlowerOwnerName,
   flowerOwners,
   sortWeekCompetitorRows,
+  mergedMemberResultsForSave,
 };
 `);
   assert.notEqual(script, match[1], 'test loader should replace browser boot code');
@@ -124,4 +125,32 @@ test('weekly competitors default to place with score as tie-breaker', () => {
   assert.equal(ui.sort.weekCompetitors.key, 'placement');
   assert.equal(ui.sort.weekCompetitors.dir, 1);
   assert.deepEqual(rows.map(r => r.name), ['C Guild', 'A Guild', 'B Guild']);
+});
+
+test('saving a new member result preserves existing saved member results', () => {
+  const { state, ui, normalize, mergedMemberResultsForSave } = loadGuildHq();
+  state.data = normalize({
+    members: [
+      { id: 'm1', name: 'Ada', active: true, role: 'Member', questCount: 18, flowerIds: [], flowerBonuses: {} },
+      { id: 'm2', name: 'Zoe', active: true, role: 'Member', questCount: 18, flowerIds: [], flowerBonuses: {} },
+    ],
+    flowers: [],
+    competitions: [{
+      id: 'w1',
+      weekStart: '2026-07-21',
+      weekEnd: '2026-07-26',
+      memberResults: [{ memberId: 'm1', finalScore: 111, questsCompleted: 3, questDetail: [] }],
+    }],
+  });
+  ui.weekDraft = {
+    compId: 'w1',
+    results: { m2: { finalScore: 222, questsCompleted: 4, questDetail: [] } },
+  };
+
+  const merged = mergedMemberResultsForSave(state.data.competitions[0]).sort((a, b) => a.memberId.localeCompare(b.memberId));
+
+  assert.equal(
+    JSON.stringify(merged.map(r => [r.memberId, r.finalScore, r.questsCompleted])),
+    JSON.stringify([['m1', 111, 3], ['m2', 222, 4]]),
+  );
 });

@@ -1238,6 +1238,25 @@ function draftFor(memberId) {
   if (!ui.weekDraft.results[memberId]) ui.weekDraft.results[memberId] = { finalScore: null, questsCompleted: null, questDetail: [] };
   return ui.weekDraft.results[memberId];
 }
+function hasMemberResultData(r) {
+  return r && (r.finalScore != null || r.questsCompleted != null || (r.questDetail || []).length);
+}
+function mergedMemberResultsForSave(c) {
+  const merged = new Map((c.memberResults || []).map(r => [r.memberId, {
+    memberId: r.memberId,
+    finalScore: r.finalScore,
+    questsCompleted: r.questsCompleted,
+    questDetail: (r.questDetail || []).map(q => ({ ...q })),
+  }]));
+  for (const [memberId, draft] of Object.entries(ui.weekDraft.results)) {
+    if (hasMemberResultData(draft)) {
+      merged.set(memberId, { memberId, ...draft, questDetail: (draft.questDetail || []).map(q => ({ ...q })) });
+    } else {
+      merged.delete(memberId);
+    }
+  }
+  return [...merged.values()];
+}
 
 function renderWeekDetail(id) {
   const c = state.data.competitions.find(x => x.id === id);
@@ -1355,9 +1374,7 @@ function renderWeekDetail(id) {
   document.querySelectorAll('[data-viewdetail]').forEach(btn => btn.addEventListener('click', () => questDetailDialog(c, btn.dataset.viewdetail, false)));
 
   $('#saveresults')?.addEventListener('click', () => {
-    const memberResults = Object.entries(ui.weekDraft.results)
-      .filter(([, dr]) => dr.finalScore != null || dr.questsCompleted != null || (dr.questDetail || []).length)
-      .map(([memberId, dr]) => ({ memberId, ...dr }));
+    const memberResults = mergedMemberResultsForSave(c);
     if (commit(() => store.updateCompetition(c.id, { memberResults }), 'Results saved')) ui.weekDraft = { compId: null, results: {} };
   });
   $('#exportcsv')?.addEventListener('click', () => {
