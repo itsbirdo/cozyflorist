@@ -160,16 +160,18 @@ const state = { mode: localStorage.getItem(MODE_KEY) === 'viewer' ? 'viewer' : '
 
 const ui = {
   sort: {
+    summary: { key: 'name', dir: 1 },
     members: { key: 'name', dir: 1 },
     memberFlowers: { key: 'rarity', dir: -1 },
     flowers: { key: 'points', dir: -1 },
-    rivals: { key: 'date', dir: -1 },
+    rivals: { key: 'score', dir: -1 },
     weekCompetitors: { key: 'placement', dir: 1 },
   },
-  search: { members: '', flowers: '', rivals: '' },
-  filters: { membersRole: '', showInactive: false, flowersRarity: '' },
+  search: { summary: '', members: '', flowers: '', rivals: '' },
+  filters: { summaryFlower: '', membersRole: '', showInactive: false, flowersRarity: '' },
   weekDraft: { compId: null, results: {} },
   rivalsWeekId: null, // which competition week the Rivals estimate cards show
+  rivalsShowAll: false,
 };
 
 const $ = sel => document.querySelector(sel);
@@ -767,20 +769,18 @@ function renderMembersTable() {
       <thead><tr>
         <th data-key="name" class="${sortArrow('members', 'name')}">Name</th>
         <th data-key="role" class="${sortArrow('members', 'role')}">Role</th>
-        <th data-key="timezone" class="${sortArrow('members', 'timezone')}">Timezone</th>
-        <th data-key="quests" class="${sortArrow('members', 'quests')}">Quests</th>
-        <th data-key="flowers" class="${sortArrow('members', 'flowers')}">Flowers</th>
         <th data-key="potential" class="${sortArrow('members', 'potential')}">Potential</th>
+        <th data-key="flowers" class="${sortArrow('members', 'flowers')}">Flowers</th>
+        <th data-key="timezone" class="${sortArrow('members', 'timezone')}">Timezone</th>
       </tr></thead>
       <tbody>
         ${rows.map(m => `
           <tr class="rowlink" data-go="#/members/${m.id}">
             <td>${esc(m.name)}${m.active ? '' : ' <span class="muted small">(inactive)</span>'}</td>
             <td>${roleTag(m.role)}</td>
-            <td>${esc(m.timezone || '—')}</td>
-            <td>${m.questCount}</td>
-            <td>${(m.flowerIds || []).length}</td>
             <td>${fmtNum(memberPotential(m))}</td>
+            <td>${(m.flowerIds || []).length}</td>
+            <td>${esc(m.timezone || '—')}</td>
           </tr>`).join('')}
       </tbody>
     </table>
@@ -824,11 +824,95 @@ function topMemberFlowers(m, limit = 5) {
     .slice(0, limit);
 }
 
+function floristRankForPoints(points) {
+  let best = null;
+  for (const rank of FLORIST_RANKS) {
+    if (points >= (state.data.settings.floristRanks[rank.key] || 0)) best = rank;
+  }
+  return best;
+}
+function floristRankTag(points) {
+  const rank = floristRankForPoints(points);
+  return rank
+    ? `<span class="tag tag-${rank.color}">${rank.label}</span>`
+    : '<span class="tag tag-none">Below Standard Florist</span>';
+}
+function summaryRows() {
+  const q = ui.search.summary.toLowerCase().trim();
+  const flowerFilter = ui.filters.summaryFlower;
+  const rows = state.data.members.filter(m => {
+    const top = topMemberFlowers(m);
+    const allFlowers = (m.flowerIds || []).map(flowerById).filter(Boolean);
+    const haystack = [
+      m.name,
+      m.role,
+      m.timezone,
+      m.notes,
+      ...allFlowers.map(f => f.name),
+      floristRankForPoints(memberPotential(m))?.label || '',
+    ].join(' ').toLowerCase();
+    return (!flowerFilter || (m.flowerIds || []).includes(flowerFilter)) &&
+      (!q || haystack.includes(q)) &&
+      (top.length || !flowerFilter);
+  });
+  const { key, dir } = ui.sort.summary;
+  const val = m => ({
+    name: m.name,
+    role: ROLES.indexOf(m.role),
+    potential: memberPotential(m),
+    flowers: (m.flowerIds || []).length,
+    timezone: m.timezone || null,
+    topFlower: topMemberFlowers(m)[0]?.total ?? null,
+  })[key];
+  return rows.sort((a, b) => dir * cmp(val(a), val(b)) || cmp(a.name, b.name));
+}
+
+function renderSummaryTable() {
+  const members = summaryRows();
+  $('#summary-table').innerHTML = members.length ? `
+    <div class="tablewrap">
+    <table data-sortview="summary">
+      <thead><tr>
+        <th data-key="name" class="${sortArrow('summary', 'name')}">Member</th>
+        <th data-key="role" class="${sortArrow('summary', 'role')}">Role</th>
+        <th data-key="potential" class="${sortArrow('summary', 'potential')}">Max potential</th>
+        <th data-key="flowers" class="${sortArrow('summary', 'flowers')}">Flowers</th>
+        <th data-key="timezone" class="${sortArrow('summary', 'timezone')}">Timezone</th>
+        <th data-key="topFlower" class="${sortArrow('summary', 'topFlower')}">Top 5 highest point flowers</th>
+      </tr></thead>
+      <tbody>${members.map(m => {
+        const top = topMemberFlowers(m);
+        const potential = memberPotential(m);
+        return `
+          <tr class="rowlink" data-go="#/members/${m.id}">
+            <td><strong>${esc(m.name)}</strong>${m.active ? '' : ' <span class="muted small">(inactive)</span>'}<br>${floristRankTag(potential)}</td>
+            <td>${roleTag(m.role)}</td>
+            <td><strong>${fmtNum(potential)}</strong>${m.potentialOverride != null ? ' <span class="badge">manual</span>' : ''}</td>
+            <td>${(m.flowerIds || []).length}</td>
+            <td>${esc(m.timezone || '—')}</td>
+            <td class="wrap">
+              ${top.length ? `<div class="flowerlist">${top.map(item => `
+                <span class="flowerpill">
+                  ${esc(item.flower.name)}
+                  ${rarityTag(item.flower.rarity)}
+                  <strong>${fmtNum(item.total)}</strong>
+                  ${item.bonus ? `<span class="muted small">+${fmtNum(item.bonus)}</span>` : ''}
+                </span>`).join('')}</div>` : '<span class="muted">No flowers recorded.</span>'}
+            </td>
+          </tr>`;
+      }).join('')}</tbody>
+    </table>
+    </div>`
+    : `<div class="empty"><div class="big">📋</div>No members match.</div>`;
+  bindSortHeaders('summary', renderSummaryTable);
+  document.querySelectorAll('#summary-table [data-go]').forEach(tr => tr.addEventListener('click', () => { location.hash = tr.dataset.go; }));
+}
+
 function renderSummary() {
   const members = [...state.data.members].sort((a, b) => cmp(a.name, b.name));
   const activeCount = members.filter(m => m.active).length;
   const withFlowers = members.filter(m => (m.flowerIds || []).length).length;
-  const topFlowerTotal = members.reduce((sum, m) => sum + topMemberFlowers(m).reduce((n, item) => n + item.total, 0), 0);
+  const pot = guildPotential();
 
   app().innerHTML = chrome(`
     <h1>Member flower summary</h1>
@@ -844,9 +928,9 @@ function renderSummary() {
         <div class="sub">${members.length - withFlowers} without flowers</div>
       </div>
       <div class="card stat">
-        <div class="num">${fmtNum(topFlowerTotal)}</div>
-        <div class="lbl">Top 5 total</div>
-        <div class="sub">including bonuses</div>
+        <div class="num">${fmtNum(pot.value)}</div>
+        <div class="lbl">Guild max potential</div>
+        <div class="sub">highest owned flowers</div>
       </div>
       <div class="card stat">
         <div class="num">${state.data.flowers.length}</div>
@@ -854,41 +938,19 @@ function renderSummary() {
         <div class="sub">flower types</div>
       </div>
     </div>
-    ${members.length ? `
-      <div class="tablewrap">
-      <table>
-        <thead><tr>
-          <th>Member</th>
-          <th>Role</th>
-          <th>Flowers</th>
-          <th>Max potential</th>
-          <th>Top 5 highest point flowers</th>
-        </tr></thead>
-        <tbody>${members.map(m => {
-          const top = topMemberFlowers(m);
-          return `
-            <tr class="rowlink" data-go="#/members/${m.id}">
-              <td>${esc(m.name)}${m.active ? '' : ' <span class="muted small">(inactive)</span>'}</td>
-              <td>${roleTag(m.role)}</td>
-              <td>${(m.flowerIds || []).length}</td>
-              <td><strong>${fmtNum(memberPotential(m))}</strong>${m.potentialOverride != null ? ' <span class="badge">manual</span>' : ''}</td>
-              <td class="wrap">
-                ${top.length ? `<div class="flowerlist">${top.map(item => `
-                  <span class="flowerpill">
-                    ${esc(item.flower.name)}
-                    ${rarityTag(item.flower.rarity)}
-                    <strong>${fmtNum(item.total)}</strong>
-                    ${item.bonus ? `<span class="muted small">+${fmtNum(item.bonus)}</span>` : ''}
-                  </span>`).join('')}</div>` : '<span class="muted">No flowers recorded.</span>'}
-              </td>
-            </tr>`;
-        }).join('')}</tbody>
-      </table>
-      </div>`
-      : `<div class="empty"><div class="big">📋</div>No members yet.</div>`}
+    <div class="toolbar">
+      <input type="search" id="summarysearch" placeholder="Search member, flower, timezone…" value="${esc(ui.search.summary)}">
+      <select id="summaryflower">
+        <option value="">All flowers</option>
+        ${[...state.data.flowers].sort((a, b) => cmp(a.name, b.name)).map(f => `<option value="${f.id}" ${ui.filters.summaryFlower === f.id ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}
+      </select>
+    </div>
+    <div id="summary-table"></div>
   `, '#/summary');
   bindChrome();
-  document.querySelectorAll('[data-go]').forEach(tr => tr.addEventListener('click', () => { location.hash = tr.dataset.go; }));
+  renderSummaryTable();
+  $('#summarysearch').addEventListener('input', e => { ui.search.summary = e.target.value; renderSummaryTable(); });
+  $('#summaryflower').addEventListener('change', e => { ui.filters.summaryFlower = e.target.value; renderSummaryTable(); });
 }
 
 function memberFormDialog(member) {
@@ -1542,48 +1604,56 @@ function rivalRecords() {
 
 function renderRivalsTable() {
   const q = ui.search.rivals.toLowerCase();
-  let rows = rivalRecords().filter(x => !q || x.r.name.toLowerCase().includes(q));
+  const allRows = rivalRecords().filter(x => !q || x.r.name.toLowerCase().includes(q));
+  const topRows = [...allRows].sort((a, b) => cmp(b.r.score, a.r.score) || cmp(a.r.name, b.r.name)).slice(0, 10);
+  let rows = ui.rivalsShowAll ? [...allRows] : topRows;
   const { key, dir } = ui.sort.rivals;
   const val = x => ({ date: x.date, name: x.r.name, score: x.r.score, placement: x.r.placement })[key];
-  rows.sort((a, b) => dir * cmp(val(a), val(b)));
+  rows.sort((a, b) => dir * cmp(val(a), val(b)) || cmp(a.r.name, b.r.name));
 
-  const names = [...new Set(rows.map(x => x.r.name.toLowerCase()))];
+  const names = [...new Set(allRows.map(x => x.r.name.toLowerCase()))];
   let summary = '';
-  if (q && names.length === 1 && rows.length) {
-    const scores = rows.map(x => x.r.score).filter(v => v != null);
+  if (q && names.length === 1 && allRows.length) {
+    const scores = allRows.map(x => x.r.score).filter(v => v != null);
     const best = scores.length ? Math.max(...scores) : null;
     const avg = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
-    const last = [...rows].sort((a, b) => cmp(b.date, a.date))[0];
+    const last = [...allRows].sort((a, b) => cmp(b.date, a.date))[0];
     summary = `
       <div class="card">
         <h2 style="margin-top:0">${esc(last.r.name)}</h2>
-        <p>Faced <strong>${rows.length}×</strong> · best score <strong>${fmtNum(best)}</strong> · avg <strong>${fmtNum(avg)}</strong></p>
+        <p>Faced <strong>${allRows.length}×</strong> · best score <strong>${fmtNum(best)}</strong> · avg <strong>${fmtNum(avg)}</strong></p>
         <p class="muted">Last met ${esc(weekLabel(last.comp))}: scored ${fmtNum(last.r.score)}, placed ${ordinal(last.r.placement)}${last.r.rankTitle ? ` (${esc(last.r.rankTitle)})` : ''}.</p>
       </div>`;
+  }
+
+  const toggle = $('#rtoggle');
+  if (toggle) {
+    toggle.textContent = ui.rivalsShowAll ? 'Show top 10' : 'Show full list';
+    toggle.hidden = allRows.length <= 10;
   }
 
   $('#rivals-table').innerHTML = summary + (rows.length ? `
     <div class="tablewrap">
     <table data-sortview="rivals">
       <thead><tr>
-        <th data-key="date" class="${sortArrow('rivals', 'date')}">Week</th>
         <th data-key="name" class="${sortArrow('rivals', 'name')}">Guild</th>
         <th data-key="score" class="${sortArrow('rivals', 'score')}">Score</th>
         <th>Rank</th>
         <th data-key="placement" class="${sortArrow('rivals', 'placement')}">Place</th>
+        <th data-key="date" class="${sortArrow('rivals', 'date')}">Week</th>
       </tr></thead>
       <tbody>${rows.map(x => `
         <tr class="rowlink" data-name="${esc(x.r.name)}" data-week="${x.comp.id}">
-          <td>${esc(weekLabel(x.comp))}</td>
           <td>${esc(x.r.name)}</td>
           <td>${fmtNum(x.r.score)}</td>
           <td>${esc(x.r.rankTitle || '—')}</td>
           <td>${ordinal(x.r.placement)}</td>
+          <td>${esc(weekLabel(x.comp))}</td>
         </tr>`).join('')}
       </tbody>
     </table>
     </div>
-    <p class="muted small">Tap a row to see that guild's full history; tap it again to open that week.</p>`
+    <p class="muted small">${ui.rivalsShowAll ? `Showing all ${allRows.length} records.` : `Showing top ${rows.length} by score.`} Tap a row to see that guild's full history; tap it again to open that week.</p>`
     : `<div class="empty"><div class="big">⚔️</div>No rival records${q ? ' match' : ' yet — log them inside each competition week'}.</div>`);
 
   bindSortHeaders('rivals', renderRivalsTable);
@@ -1724,7 +1794,14 @@ function renderRivals() {
 
   app().innerHTML = chrome(`
     <h1>Rivals</h1>
+    <h2>Competitor history</h2>
+    <div class="toolbar">
+      <input type="search" id="rsearch" placeholder="Search guild name…" value="${esc(ui.search.rivals)}">
+      <button class="btn secondary small" id="rtoggle" type="button">Show full list</button>
+    </div>
+    <div id="rivals-table"></div>
     ${comps.length ? `
+      <h2>Score estimates</h2>
       <div class="toolbar">
         <select id="rweek">${comps.map(x =>
           `<option value="${x.id}" ${c && x.id === c.id ? 'selected' : ''}>${esc(weekLabel(x))}</option>`).join('')}</select>
@@ -1739,15 +1816,11 @@ function renderRivals() {
         : `<div class="empty"><div class="big">⚔️</div>No rivals in this week yet.${isAdmin() ? ' Add them with the button above.' : ''}</div>`}
       <p class="muted small">Our own max potential: <strong>${fmtNum(guildPotential().value)}</strong> — the number to push past theirs.</p>`
       : '<div class="empty"><div class="big">⚔️</div>Create a competition week first (Weeks tab), then estimate rivals here.</div>'}
-    <h2>Competitor history</h2>
-    <div class="toolbar">
-      <input type="search" id="rsearch" placeholder="Search guild name…" value="${esc(ui.search.rivals)}">
-    </div>
-    <div id="rivals-table"></div>
   `, '#/rivals');
   bindChrome();
   renderRivalsTable();
   $('#rsearch').addEventListener('input', e => { ui.search.rivals = e.target.value; renderRivalsTable(); });
+  $('#rtoggle').addEventListener('click', () => { ui.rivalsShowAll = !ui.rivalsShowAll; renderRivalsTable(); });
   $('#rweek')?.addEventListener('change', e => { ui.rivalsWeekId = e.target.value; renderRivals(); });
   $('#estaddrival')?.addEventListener('click', () => rivalFormDialog(c, null));
   document.querySelectorAll('[data-editrival]').forEach(el =>
