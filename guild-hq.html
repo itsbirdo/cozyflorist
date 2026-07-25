@@ -1558,7 +1558,7 @@ function weekFormDialog(c) {
   });
 }
 
-function rivalFormDialog(c, rival) {
+function rivalFormDialog(c, rival, afterSave) {
   const r = rival || { name: '', score: null, rankTitle: '', placement: null, notes: '' };
   const dlg = openDialog(`
     <h2>${rival ? 'Edit rival' : 'Add rival guild'}</h2>
@@ -1586,11 +1586,17 @@ function rivalFormDialog(c, rival) {
     const entry = { id: rival?.id, name: f.get('name'), score: f.get('score') || null, rankTitle: f.get('rankTitle'), placement: f.get('placement') || null, notes: f.get('notes'), estimate: rival?.estimate ?? null };
     const competitors = rival ? (c.competitors || []).map(x => x.id === rival.id ? entry : x) : [...(c.competitors || []), entry];
     const ok = commit(() => store.updateCompetition(c.id, autoPlacementPatch(c, competitors, currentWeekOurScore(c))), rival ? 'Rival saved' : 'Rival added');
-    if (ok) dlg.close();
+    if (ok) {
+      dlg.close();
+      afterSave?.();
+    }
   });
   dlg.querySelector('#delrival')?.addEventListener('click', () => {
     const competitors = (c.competitors || []).filter(x => x.id !== rival.id);
-    if (commit(() => store.updateCompetition(c.id, autoPlacementPatch(c, competitors, currentWeekOurScore(c))), 'Rival removed')) dlg.close();
+    if (commit(() => store.updateCompetition(c.id, autoPlacementPatch(c, competitors, currentWeekOurScore(c))), 'Rival removed')) {
+      dlg.close();
+      afterSave?.();
+    }
   });
 }
 
@@ -1686,7 +1692,10 @@ function renderRivalDetail(rawName) {
 
   app().innerHTML = chrome(`
     <a href="#/rivals" class="backlink">← Rivals</a>
-    <h1>${esc(latest.r.name)}</h1>
+    <div class="toolbar" style="justify-content:space-between">
+      <h1 style="margin:0">${esc(latest.r.name)}</h1>
+      ${isAdmin() ? `<button class="btn small" id="edit-latest-rival">Edit latest notes</button>` : ''}
+    </div>
     <div class="cardgrid">
       <div class="card stat">
         <div class="num">${rows.length}</div>
@@ -1709,11 +1718,19 @@ function renderRivalDetail(rawName) {
         <div class="sub">${esc(weekLabel(latest.comp))}</div>
       </div>
     </div>
-    ${latest.r.notes ? `<div class="card"><h2 style="margin-top:0">Notes</h2><p class="muted" style="white-space:pre-wrap">${esc(latest.r.notes)}</p></div>` : ''}
+    <div class="card">
+      <div class="toolbar" style="justify-content:space-between">
+        <h2 style="margin:0">Notes</h2>
+        ${isAdmin() ? `<button class="btn secondary small" id="edit-rival-notes">Edit</button>` : ''}
+      </div>
+      ${latest.r.notes
+        ? `<p class="muted" style="white-space:pre-wrap">${esc(latest.r.notes)}</p>`
+        : '<p class="muted">No notes saved for the latest meeting yet.</p>'}
+    </div>
     <div class="card">
       <h2 style="margin-top:0">Competition history</h2>
       <div class="tablewrap"><table>
-        <thead><tr><th>Week</th><th>Score</th><th>Place</th><th>Rank</th><th>Potential calculator</th><th>Notes</th></tr></thead>
+        <thead><tr><th>Week</th><th>Score</th><th>Place</th><th>Rank</th><th>Potential calculator</th><th>Notes</th>${isAdmin() ? '<th></th>' : ''}</tr></thead>
         <tbody>${rows.map(x => `
           <tr class="rowlink" data-go="#/weeks/${x.comp.id}">
             <td>${esc(weekLabel(x.comp))}</td>
@@ -1722,11 +1739,22 @@ function renderRivalDetail(rawName) {
             <td>${esc(x.r.rankTitle || '—')}</td>
             <td class="wrap">${rivalEstimateSummary(x.r)}</td>
             <td class="wrap">${x.r.notes ? esc(x.r.notes) : '<span class="muted">—</span>'}</td>
+            ${isAdmin() ? `<td><button class="btn secondary small" data-edit-rival="${x.comp.id}:${x.r.id}" type="button">Edit</button></td>` : ''}
           </tr>`).join('')}</tbody>
       </table></div>
     </div>
   `, '#/rivals');
   bindChrome();
+  const rerender = () => renderRivalDetail(encodeURIComponent(name));
+  $('#edit-latest-rival')?.addEventListener('click', () => rivalFormDialog(latest.comp, latest.r, rerender));
+  $('#edit-rival-notes')?.addEventListener('click', () => rivalFormDialog(latest.comp, latest.r, rerender));
+  document.querySelectorAll('[data-edit-rival]').forEach(btn => btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const [compId, rivalId] = btn.dataset.editRival.split(':');
+    const comp = state.data.competitions.find(x => x.id === compId);
+    const rival = (comp?.competitors || []).find(x => x.id === rivalId);
+    if (comp && rival) rivalFormDialog(comp, rival, rerender);
+  }));
   document.querySelectorAll('[data-go]').forEach(tr => tr.addEventListener('click', () => { location.hash = tr.dataset.go; }));
 }
 
