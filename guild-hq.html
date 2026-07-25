@@ -306,6 +306,9 @@ function memberById(id) { return state.data.members.find(m => m.id === id); }
 function flowerOwners(flowerId) {
   return state.data.members.filter(m => (m.flowerIds || []).includes(flowerId));
 }
+function ownedFlowerIds() {
+  return new Set(state.data.members.flatMap(m => m.flowerIds || []));
+}
 
 function uuid() {
   try { if (window.crypto && crypto.randomUUID) return crypto.randomUUID(); } catch { /* fall through */ }
@@ -659,16 +662,15 @@ function bindChrome() {
 function renderDashboard() {
   const d = state.data, s = d.settings;
   const active = d.members.filter(m => m.active);
-  const totalOwned = d.members.reduce((n, m) => n + (m.flowerIds || []).length, 0);
+  const ownedIds = ownedFlowerIds();
+  const totalOwned = ownedIds.size;
   const pot = guildPotential();
 
   const byRarity = new Map();
-  for (const m of d.members) {
-    for (const fid of m.flowerIds || []) {
-      const f = flowerById(fid);
-      if (!f) continue;
-      byRarity.set(f.rarity || 'none', (byRarity.get(f.rarity || 'none') || 0) + 1);
-    }
+  for (const fid of ownedIds) {
+    const f = flowerById(fid);
+    if (!f) continue;
+    byRarity.set(f.rarity || 'none', (byRarity.get(f.rarity || 'none') || 0) + 1);
   }
   const rarityChips = [...RARITIES.map(r => ({ ...r, count: byRarity.get(r.key) || 0 })), { key: 'none', label: 'No rarity', color: 'none', count: byRarity.get('none') || 0 }]
     .filter(r => r.count)
@@ -702,7 +704,7 @@ function renderDashboard() {
       </div>
       <div class="card stat">
         <div class="num">${totalOwned}</div>
-        <div class="lbl">Flowers owned</div>
+        <div class="lbl">Base flowers owned</div>
         <div class="sub">${d.flowers.length} types in catalogue</div>
       </div>
       <div class="card stat">
