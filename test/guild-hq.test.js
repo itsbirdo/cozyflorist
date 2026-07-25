@@ -33,6 +33,7 @@ globalThis.__guildHq = {
   memberResultsScoreSummary,
   weeklyPlacementMap,
   autoPlacementPatch,
+  scoreBarWidth,
 };
 `);
   assert.notEqual(script, match[1], 'test loader should replace browser boot code');
@@ -241,4 +242,13 @@ test('weekly competitor sorting uses computed placement values', () => {
   ], placements);
 
   assert.equal(rows.map(r => r.id).join(','), 'r1,ours,r2');
+});
+
+test('score comparison bar widths scale by score', () => {
+  const { scoreBarWidth } = loadGuildHq();
+
+  assert.equal(scoreBarWidth(20000, 20000), 100);
+  assert.equal(scoreBarWidth(12000, 20000), 60);
+  assert.equal(scoreBarWidth(4700, 20000), 24);
+  assert.equal(scoreBarWidth(0, 20000), 0);
 });
