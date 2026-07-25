@@ -59,7 +59,7 @@
     .chip { display: inline-flex; align-items: center; gap: 5px; background: var(--leaf-soft); color: var(--leaf); border-radius: 99px; padding: 3px 10px; font-size: .78rem; font-weight: 600; margin: 2px 4px 2px 0; }
     .chip.rose { background: var(--accent-soft); color: var(--accent); }
     .chip button { all: unset; cursor: pointer; font-weight: 800; padding: 0 2px; }
-    .flowerlist { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-width: 240px; }
+    .flowerlist { display: grid; gap: 5px; align-items: start; min-width: 240px; }
     .flowerpill { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); border-radius: 99px; padding: 3px 9px; background: var(--bg); font-size: .78rem; white-space: nowrap; }
     .flowerpill strong { font-variant-numeric: tabular-nums; }
     /* colour-coded labels: member roles, flower rarities, florist ranks */
@@ -861,6 +861,7 @@ function renderSummary() {
           <th>Member</th>
           <th>Role</th>
           <th>Flowers</th>
+          <th>Max potential</th>
           <th>Top 5 highest point flowers</th>
         </tr></thead>
         <tbody>${members.map(m => {
@@ -870,6 +871,7 @@ function renderSummary() {
               <td>${esc(m.name)}${m.active ? '' : ' <span class="muted small">(inactive)</span>'}</td>
               <td>${roleTag(m.role)}</td>
               <td>${(m.flowerIds || []).length}</td>
+              <td><strong>${fmtNum(memberPotential(m))}</strong>${m.potentialOverride != null ? ' <span class="badge">manual</span>' : ''}</td>
               <td class="wrap">
                 ${top.length ? `<div class="flowerlist">${top.map(item => `
                   <span class="flowerpill">
