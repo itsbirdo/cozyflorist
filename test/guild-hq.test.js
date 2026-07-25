@@ -25,6 +25,7 @@ globalThis.__guildHq = {
   topMemberFlowers,
   firstFlowerOwnerName,
   flowerOwners,
+  sortWeekCompetitorRows,
 };
 `);
   assert.notEqual(script, match[1], 'test loader should replace browser boot code');
@@ -110,4 +111,17 @@ test('flowers page defaults to max points sorting', () => {
 
   assert.equal(ui.sort.flowers.key, 'points');
   assert.equal(ui.sort.flowers.dir, -1);
+});
+
+test('weekly competitors default to place with score as tie-breaker', () => {
+  const { ui, sortWeekCompetitorRows } = loadGuildHq();
+  const rows = sortWeekCompetitorRows([
+    { name: 'B Guild', score: 800, placement: 2 },
+    { name: 'A Guild', score: 900, placement: 2 },
+    { name: 'C Guild', score: 700, placement: 1 },
+  ]);
+
+  assert.equal(ui.sort.weekCompetitors.key, 'placement');
+  assert.equal(ui.sort.weekCompetitors.dir, 1);
+  assert.deepEqual(rows.map(r => r.name), ['C Guild', 'A Guild', 'B Guild']);
 });

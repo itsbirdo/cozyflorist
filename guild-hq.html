@@ -164,7 +164,7 @@ const ui = {
     memberFlowers: { key: 'rarity', dir: -1 },
     flowers: { key: 'points', dir: -1 },
     rivals: { key: 'date', dir: -1 },
-    weekCompetitors: { key: 'score', dir: -1 },
+    weekCompetitors: { key: 'placement', dir: 1 },
   },
   search: { members: '', flowers: '', rivals: '' },
   filters: { membersRole: '', showInactive: false, flowersRarity: '' },
@@ -1217,6 +1217,15 @@ function renderWeeks() {
   });
 }
 
+function sortWeekCompetitorRows(rows) {
+  const { key, dir } = ui.sort.weekCompetitors;
+  const val = r => ({ name: r.name, score: r.score, rankTitle: r.rankTitle, placement: r.placement })[key];
+  return rows.sort((a, b) =>
+    dir * cmp(val(a), val(b)) ||
+    (key === 'placement' ? cmp(b.score, a.score) : cmp(a.placement, b.placement)) ||
+    cmp(a.name, b.name));
+}
+
 function ensureWeekDraft(c) {
   if (ui.weekDraft.compId === c.id) return;
   const results = {};
@@ -1241,8 +1250,7 @@ function renderWeekDetail(id) {
   ].filter(e => e.score !== null && e.score !== undefined).sort((a, b) => b.score - a.score);
   const maxScore = Math.max(1, ...entries.map(e => e.score));
 
-  const { key, dir } = ui.sort.weekCompetitors;
-  const rivals = [...(c.competitors || [])].sort((a, b) => dir * cmp(a[key], b[key]));
+  const rivals = sortWeekCompetitorRows([...(c.competitors || [])]);
 
   const withData = new Set([...(c.memberResults || []).map(r => r.memberId), ...Object.keys(ui.weekDraft.results)]);
   const resultMembers = state.data.members.filter(m => m.active || withData.has(m.id)).sort((a, b) => cmp(a.name, b.name));
@@ -1271,21 +1279,28 @@ function renderWeekDetail(id) {
         </div>`).join('')}
     </div>` : ''}
     <div class="card">
-      <h2 style="margin-top:0">Rival guilds (${rivals.length})</h2>
-      ${rivals.length ? `
-        <div class="tablewrap"><table data-sortview="weekCompetitors">
-          <thead><tr>
-            <th data-key="name" class="${sortArrow('weekCompetitors', 'name')}">Guild</th>
-            <th data-key="score" class="${sortArrow('weekCompetitors', 'score')}">Score</th>
-            <th data-key="rankTitle" class="${sortArrow('weekCompetitors', 'rankTitle')}">Rank</th>
-            <th data-key="placement" class="${sortArrow('weekCompetitors', 'placement')}">Place</th>
-          </tr></thead>
-          <tbody>${rivals.map(r => `
-            <tr class="${isAdmin() ? 'rowlink' : ''}" data-rival="${r.id}">
-              <td>${esc(r.name)}</td><td>${fmtNum(r.score)}</td>
-              <td>${esc(r.rankTitle || '—')}</td><td>${ordinal(r.placement)}</td>
-            </tr>`).join('')}
-          </tbody></table></div>` : '<p class="muted">No rivals logged for this week yet.</p>'}
+      <h2 style="margin-top:0">Weekly competitors (${rivals.length + 1})</h2>
+      <div class="tablewrap"><table data-sortview="weekCompetitors">
+        <thead><tr>
+          <th data-key="name" class="${sortArrow('weekCompetitors', 'name')}">Guild</th>
+          <th data-key="score" class="${sortArrow('weekCompetitors', 'score')}">Score</th>
+          <th data-key="rankTitle" class="${sortArrow('weekCompetitors', 'rankTitle')}">Rank</th>
+          <th data-key="placement" class="${sortArrow('weekCompetitors', 'placement')}">Place</th>
+        </tr></thead>
+        <tbody>
+          <tr class="highlight">
+            <td>${esc(state.data.settings.guildName)}</td>
+            <td>${fmtNum(c.ourScore)}</td>
+            <td>${esc(c.ourRankTitle || '—')}</td>
+            <td>${ordinal(c.ourPlacement)}</td>
+          </tr>
+          ${rivals.map(r => `
+          <tr class="${isAdmin() ? 'rowlink' : ''}" data-rival="${r.id}">
+            <td>${esc(r.name)}</td><td>${fmtNum(r.score)}</td>
+            <td>${esc(r.rankTitle || '—')}</td><td>${ordinal(r.placement)}</td>
+          </tr>`).join('')}
+        </tbody></table></div>
+      ${rivals.length ? '' : '<p class="muted small">No rival guilds logged for this week yet.</p>'}
       ${isAdmin() ? '<button class="btn secondary small" id="addrival">+ Add rival</button>' : ''}
     </div>
     <div class="card">
