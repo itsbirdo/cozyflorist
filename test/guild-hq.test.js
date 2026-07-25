@@ -27,6 +27,10 @@ globalThis.__guildHq = {
   flowerOwners,
   sortWeekCompetitorRows,
   mergedMemberResultsForSave,
+  memberPotential,
+  guildPotential,
+  bestPotentialFlower,
+  memberResultsScoreSummary,
 };
 `);
   assert.notEqual(script, match[1], 'test loader should replace browser boot code');
@@ -153,4 +157,52 @@ test('saving a new member result preserves existing saved member results', () =>
     JSON.stringify(merged.map(r => [r.memberId, r.finalScore, r.questsCompleted])),
     JSON.stringify([['m1', 111, 3], ['m2', 222, 4]]),
   );
+});
+
+test('member max potential uses highest base-point flower and that flower bonus', () => {
+  const { state, normalize, bestPotentialFlower, memberPotential, guildPotential } = loadGuildHq();
+  state.data = normalize({
+    settings: { questsMax: 24, maxMultiplier: 2 },
+    members: [{
+      id: 'm1',
+      name: 'Ada',
+      active: true,
+      role: 'Member',
+      questCount: 18,
+      flowerIds: ['thirty', 'twentyeight'],
+      flowerBonuses: { thirty: 2, twentyeight: 10 },
+    }],
+    flowers: [
+      { id: 'thirty', name: 'Thirty', rarity: 'UR', points: 30 },
+      { id: 'twentyeight', name: 'Twenty Eight', rarity: 'SSR', points: 28 },
+    ],
+    competitions: [],
+  });
+
+  assert.equal(bestPotentialFlower(state.data.members[0]).flower.id, 'thirty');
+  assert.equal(memberPotential(state.data.members[0]), 1488);
+  assert.equal(guildPotential().value, 1488);
+});
+
+test('week score tally sums saved and draft member scores', () => {
+  const { state, ui, normalize, mergedMemberResultsForSave, memberResultsScoreSummary } = loadGuildHq();
+  state.data = normalize({
+    members: [
+      { id: 'm1', name: 'Ada', active: true, role: 'Member', questCount: 18, flowerIds: [], flowerBonuses: {} },
+      { id: 'm2', name: 'Zoe', active: true, role: 'Member', questCount: 18, flowerIds: [], flowerBonuses: {} },
+    ],
+    flowers: [],
+    competitions: [{
+      id: 'w1',
+      memberResults: [{ memberId: 'm1', finalScore: 111, questsCompleted: 3, questDetail: [] }],
+    }],
+  });
+  ui.weekDraft = {
+    compId: 'w1',
+    results: { m2: { finalScore: 222, questsCompleted: null, questDetail: [] } },
+  };
+
+  const summary = memberResultsScoreSummary(mergedMemberResultsForSave(state.data.competitions[0]));
+  assert.equal(summary.hasScores, true);
+  assert.equal(summary.total, 333);
 });

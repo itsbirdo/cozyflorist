@@ -554,23 +554,31 @@ function effScorePerQuest() {
   const p = state.data.settings.potential;
   return (p.scorePerQuest || 0) + (p.includeBonus ? (p.avgBonus || 0) : 0);
 }
+function bestPotentialFlower(m) {
+  const s = state.data.settings;
+  return (m.flowerIds || [])
+    .map(flowerById)
+    .filter(Boolean)
+    .map(f => ({
+      flower: f,
+      bonus: flowerBonus(m, f.id),
+      scorePerQuest: (f.points || 0) * s.maxMultiplier + flowerBonus(m, f.id),
+    }))
+    .sort((a, b) => cmp(b.flower.points || 0, a.flower.points || 0) || cmp(b.bonus, a.bonus) || cmp(a.flower.name, b.flower.name))[0] || null;
+}
 function memberPotential(m) {
   if (m.potentialOverride !== null && m.potentialOverride !== undefined) return m.potentialOverride;
-  const s = state.data.settings;
-  return Math.round((m.questCount ?? s.questsMax) * effScorePerQuest());
+  const best = bestPotentialFlower(m);
+  if (!best) return 0;
+  return Math.round(state.data.settings.questsMax * best.scorePerQuest);
 }
 function guildPotential() {
-  const s = state.data.settings, p = s.potential;
-  if (p.membersOverride !== null && p.membersOverride !== undefined) {
-    return { value: Math.round(p.membersOverride * s.questsMax * effScorePerQuest()), basis: `${p.membersOverride} members (manual) × ${s.questsMax} quests × ${effScorePerQuest()} pts` };
-  }
   const active = state.data.members.filter(m => m.active);
-  if (!active.length) {
-    return { value: Math.round(s.memberCapacity * s.questsMax * effScorePerQuest()), basis: `${s.memberCapacity} capacity × ${s.questsMax} quests × ${effScorePerQuest()} pts` };
-  }
   return {
     value: active.reduce((sum, m) => sum + memberPotential(m), 0),
-    basis: `sum over ${active.length} active members (each: own quest count × ${effScorePerQuest()} pts, or their manual override)`,
+    basis: active.length
+      ? `sum over ${active.length} active members (each: ${state.data.settings.questsMax} quests × their highest owned flower after multiplier and bonus)`
+      : 'no active members with flower data yet',
   };
 }
 
@@ -666,14 +674,11 @@ function bindChrome() {
 function renderDashboard() {
   const d = state.data, s = d.settings;
   const active = d.members.filter(m => m.active);
-  const ownedIds = ownedFlowerIds();
-  const totalOwned = ownedIds.size;
+  const totalOwned = d.flowers.length;
   const pot = guildPotential();
 
   const byRarity = new Map();
-  for (const fid of ownedIds) {
-    const f = flowerById(fid);
-    if (!f) continue;
+  for (const f of d.flowers) {
     byRarity.set(f.rarity || 'none', (byRarity.get(f.rarity || 'none') || 0) + 1);
   }
   const rarityChips = [...RARITIES.map(r => ({ ...r, count: byRarity.get(r.key) || 0 })), { key: 'none', label: 'No rarity', color: 'none', count: byRarity.get('none') || 0 }]
@@ -708,8 +713,8 @@ function renderDashboard() {
       </div>
       <div class="card stat">
         <div class="num">${totalOwned}</div>
-        <div class="lbl">Base flowers owned</div>
-        <div class="sub">${d.flowers.length} types in catalogue</div>
+        <div class="lbl">Flowers owned</div>
+        <div class="sub">catalogue total</div>
       </div>
       <div class="card stat">
         <div class="num">${fmtNum(pot.value)}</div>
@@ -729,9 +734,9 @@ function renderDashboard() {
     ${latestCard}
     <div class="card">
       <h2 style="margin-top:0">Max potential — how it's calculated</h2>
-      <p class="muted">Estimate: ${esc(pot.basis)}.
-      Flower→quest scoring in game isn't fully known, so tune the inputs under
-      <a href="#/settings">Settings → Potential estimate</a> as the real relationship becomes clear.</p>
+      <p class="muted">Estimate: ${esc(pot.basis)}. Each member uses their own highest-point
+      flower, applies the max multiplier, adds that member's bonus on that flower, then multiplies
+      by max quests.</p>
     </div>
   `, '#/dashboard');
   bindChrome();
@@ -1257,14 +1262,27 @@ function mergedMemberResultsForSave(c) {
   }
   return [...merged.values()];
 }
+function memberResultsScoreSummary(memberResults) {
+  const scores = memberResults.map(r => r.finalScore).filter(v => v !== null && v !== undefined);
+  return { hasScores: scores.length > 0, total: scores.reduce((sum, score) => sum + Number(score || 0), 0) };
+}
+function currentWeekOurScore(c) {
+  const score = memberResultsScoreSummary(mergedMemberResultsForSave(c));
+  return score.hasScores ? score.total : c.ourScore;
+}
+function refreshWeekScoreTotal(c) {
+  const score = currentWeekOurScore(c);
+  document.querySelectorAll('[data-week-our-score]').forEach(el => { el.textContent = fmtNum(score); });
+}
 
 function renderWeekDetail(id) {
   const c = state.data.competitions.find(x => x.id === id);
   if (!c) { location.hash = '#/weeks'; return; }
   ensureWeekDraft(c);
+  const displayOurScore = currentWeekOurScore(c);
 
   const entries = [
-    { name: state.data.settings.guildName, score: c.ourScore, ours: true },
+    { name: state.data.settings.guildName, score: displayOurScore, ours: true },
     ...(c.competitors || []).map(r => ({ name: r.name, score: r.score, ours: false })),
   ].filter(e => e.score !== null && e.score !== undefined).sort((a, b) => b.score - a.score);
   const maxScore = Math.max(1, ...entries.map(e => e.score));
@@ -1280,7 +1298,7 @@ function renderWeekDetail(id) {
     <h1>${esc(weekLabel(c))}</h1>
     <div class="card">
       <h2 style="margin-top:0">Our result</h2>
-      <p>Score <strong>${fmtNum(c.ourScore)}</strong>
+      <p>Score <strong data-week-our-score>${fmtNum(displayOurScore)}</strong>
         · Placement <strong>${ordinal(c.ourPlacement)}</strong>
         ${c.ourRankTitle ? `· ${esc(c.ourRankTitle)}` : ''}</p>
       ${c.notes ? `<p class="muted" style="white-space:pre-wrap">${esc(c.notes)}</p>` : ''}
@@ -1298,7 +1316,7 @@ function renderWeekDetail(id) {
         </div>`).join('')}
     </div>` : ''}
     <div class="card">
-      <h2 style="margin-top:0">Weekly competitors (${rivals.length + 1})</h2>
+      <h2 style="margin-top:0">Weekly competitors</h2>
       <div class="tablewrap"><table data-sortview="weekCompetitors">
         <thead><tr>
           <th data-key="name" class="${sortArrow('weekCompetitors', 'name')}">Guild</th>
@@ -1309,7 +1327,7 @@ function renderWeekDetail(id) {
         <tbody>
           <tr class="highlight">
             <td>${esc(state.data.settings.guildName)}</td>
-            <td>${fmtNum(c.ourScore)}</td>
+            <td data-week-our-score>${fmtNum(displayOurScore)}</td>
             <td>${esc(c.ourRankTitle || '—')}</td>
             <td>${ordinal(c.ourPlacement)}</td>
           </tr>
@@ -1367,15 +1385,17 @@ function renderWeekDetail(id) {
       }));
   }
   document.querySelectorAll('[data-quests]').forEach(inp =>
-    inp.addEventListener('input', () => { draftFor(inp.dataset.quests).questsCompleted = inp.value === '' ? null : Number(inp.value); }));
+    inp.addEventListener('input', () => { draftFor(inp.dataset.quests).questsCompleted = inp.value === '' ? null : Number(inp.value); refreshWeekScoreTotal(c); }));
   document.querySelectorAll('[data-score]').forEach(inp =>
-    inp.addEventListener('input', () => { draftFor(inp.dataset.score).finalScore = inp.value === '' ? null : Number(inp.value); }));
+    inp.addEventListener('input', () => { draftFor(inp.dataset.score).finalScore = inp.value === '' ? null : Number(inp.value); refreshWeekScoreTotal(c); }));
   document.querySelectorAll('[data-detail]').forEach(btn => btn.addEventListener('click', () => questDetailDialog(c, btn.dataset.detail, true)));
   document.querySelectorAll('[data-viewdetail]').forEach(btn => btn.addEventListener('click', () => questDetailDialog(c, btn.dataset.viewdetail, false)));
 
   $('#saveresults')?.addEventListener('click', () => {
     const memberResults = mergedMemberResultsForSave(c);
-    if (commit(() => store.updateCompetition(c.id, { memberResults }), 'Results saved')) ui.weekDraft = { compId: null, results: {} };
+    const score = memberResultsScoreSummary(memberResults);
+    const body = score.hasScores ? { memberResults, ourScore: score.total } : { memberResults };
+    if (commit(() => store.updateCompetition(c.id, body), 'Results saved')) ui.weekDraft = { compId: null, results: {} };
   });
   $('#exportcsv')?.addEventListener('click', () => {
     const rows = [['Member', 'Role', 'Quests completed', 'Final score']];
@@ -1774,10 +1794,9 @@ function renderSettings() {
       </div>
       <div class="card">
         <h2 style="margin-top:0">Potential estimate <span class="badge">est.</span></h2>
-        <p class="muted small">Member potential = quest count × (score per quest + avg bonus if enabled),
-          unless a member has a manual override. Guild potential sums active members —
-          or uses the manual member count below if set. Tune once the real flower→quest
-          relationship is clear.</p>
+        <p class="muted small">Member potential = max quests × ((that member's highest-point
+          owned flower × max multiplier) + that member's bonus on that flower), unless a member
+          has a manual override. Guild potential sums active members.</p>
         <div class="formrow">
           <div><label>Score per quest</label><input name="p_scorePerQuest" ${ro} type="number" step="any" value="${s.potential.scorePerQuest}"></div>
           <div><label>Avg bonus per quest</label><input name="p_avgBonus" ${ro} type="number" step="any" value="${s.potential.avgBonus}"></div>
