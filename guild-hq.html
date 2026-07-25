@@ -91,6 +91,22 @@
     .estscores span { display: block; }
     .estscores strong { font-size: 1.05rem; font-variant-numeric: tabular-nums; }
     .tablewrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 8px -14px; padding: 0 14px; }
+    .mobile-only { display: none; }
+    .mobilecards { display: none; }
+    .mobilecard { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; box-shadow: var(--shadow); }
+    .mobilecard.highlight { background: var(--accent-soft); font-weight: 700; }
+    .mobilecard.rowlink { cursor: pointer; }
+    .mobilecard:active { background: var(--accent-soft); }
+    .mobilecard .head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+    .mobilecard .head strong { font-size: 1rem; }
+    .mobilecard .meta { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+    .mobilecard .metric { text-align: right; font-variant-numeric: tabular-nums; }
+    .mobilecard .section { margin-top: 10px; }
+    .mobilecard .section label { margin-bottom: 3px; }
+    .mobilecard .actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .mobilecard .actions .btn { margin: 0; }
+    .mobilefield { display: grid; grid-template-columns: minmax(86px, auto) 1fr; gap: 8px; align-items: center; margin: 7px 0; }
+    .mobilefield input { margin: 0; }
     table { border-collapse: collapse; width: 100%; font-size: .86rem; min-width: 480px; }
     th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
     td.wrap { white-space: normal; }
@@ -149,6 +165,19 @@
     .questrow select, .questrow input { margin: 0; padding: 6px 8px; }
     .backlink { display: inline-block; margin-top: 14px; font-weight: 700; font-size: .85rem; }
     hr { border: none; border-top: 1px solid var(--line); margin: 14px 0; }
+    @media (max-width: 640px) {
+      .desktop-only { display: none !important; }
+      .mobile-only { display: flex; }
+      .mobilecards { display: grid; gap: 10px; margin: 10px 0; }
+      .flowerlist { min-width: 0; }
+      .flowerpill { white-space: normal; }
+      .mobile-sort { width: 100%; }
+      .mobile-sort select { width: 100%; flex: 1 1 100%; }
+      .toolbar input, .toolbar select, .toolbar button.btn { flex: 1 1 100%; width: 100%; }
+      dialog { width: min(480px, calc(100vw - 18px)); padding: 14px; }
+      .formrow, .formrow3 { grid-template-columns: 1fr; }
+      .questrow { grid-template-columns: 1fr auto 58px 62px auto; gap: 4px; }
+    }
   </style>
 </head>
 <body>
@@ -884,7 +913,7 @@ function summaryRows() {
 function renderSummaryTable() {
   const members = summaryRows();
   $('#summary-table').innerHTML = members.length ? `
-    <div class="tablewrap">
+    <div class="tablewrap desktop-only">
     <table data-sortview="summary">
       <thead><tr>
         <th data-key="name" class="${sortArrow('summary', 'name')}">Member</th>
@@ -914,6 +943,39 @@ function renderSummaryTable() {
           </tr>`;
       }).join('')}</tbody>
     </table>
+    </div>
+    <div class="mobilecards">
+      ${members.map(m => {
+        const top = topMemberFlowers(m);
+        const potential = memberPotential(m);
+        return `
+          <div class="mobilecard rowlink" data-go="#/members/${m.id}">
+            <div class="head">
+              <div>
+                <strong>${esc(m.name)}</strong>${m.active ? '' : ' <span class="muted small">(inactive)</span>'}
+                <div class="meta">${roleTag(m.role)} ${floristRankTag(potential)}</div>
+              </div>
+              <div class="metric">
+                <strong>${fmtNum(potential)}</strong>
+                <div class="muted small">max potential</div>
+              </div>
+            </div>
+            <div class="section">
+              <label>Top 5 flowers</label>
+              ${top.length ? `<div class="flowerlist">${top.map(item => `
+                <span class="flowerpill">
+                  ${esc(item.flower.name)}
+                  ${rarityTag(item.flower.rarity)}
+                  <strong>${fmtNum(item.total)}</strong>
+                  ${item.bonus ? `<span class="muted small">+${fmtNum(item.bonus)}</span>` : ''}
+                </span>`).join('')}</div>` : '<p class="muted">No flowers recorded.</p>'}
+            </div>
+            <div class="meta">
+              <span class="chip">${(m.flowerIds || []).length} flowers</span>
+              <span class="chip">${esc(m.timezone || 'No timezone')}</span>
+            </div>
+          </div>`;
+      }).join('')}
     </div>`
     : `<div class="empty"><div class="big">📋</div>No members match.</div>`;
   bindSortHeaders('summary', renderSummaryTable);
@@ -956,6 +1018,15 @@ function renderSummary() {
         <option value="">All flowers</option>
         ${[...state.data.flowers].sort((a, b) => cmp(a.name, b.name)).map(f => `<option value="${f.id}" ${ui.filters.summaryFlower === f.id ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}
       </select>
+      <label class="mobile-only mobile-sort">Sort
+        <select id="summarysort">
+          <option value="name:1" ${ui.sort.summary.key === 'name' && ui.sort.summary.dir === 1 ? 'selected' : ''}>Name A-Z</option>
+          <option value="potential:-1" ${ui.sort.summary.key === 'potential' && ui.sort.summary.dir === -1 ? 'selected' : ''}>Max potential high-low</option>
+          <option value="potential:1" ${ui.sort.summary.key === 'potential' && ui.sort.summary.dir === 1 ? 'selected' : ''}>Max potential low-high</option>
+          <option value="flowers:-1" ${ui.sort.summary.key === 'flowers' && ui.sort.summary.dir === -1 ? 'selected' : ''}>Flowers high-low</option>
+          <option value="timezone:1" ${ui.sort.summary.key === 'timezone' && ui.sort.summary.dir === 1 ? 'selected' : ''}>Timezone A-Z</option>
+        </select>
+      </label>
     </div>
     <div id="summary-table"></div>
   `, '#/summary');
@@ -963,6 +1034,11 @@ function renderSummary() {
   renderSummaryTable();
   $('#summarysearch').addEventListener('input', e => { ui.search.summary = e.target.value; renderSummaryTable(); });
   $('#summaryflower').addEventListener('change', e => { ui.filters.summaryFlower = e.target.value; renderSummaryTable(); });
+  $('#summarysort')?.addEventListener('change', e => {
+    const [key, dir] = e.target.value.split(':');
+    ui.sort.summary = { key, dir: Number(dir) };
+    renderSummaryTable();
+  });
 }
 
 function memberFormDialog(member) {
@@ -1434,7 +1510,16 @@ function renderWeekDetail(id) {
     </div>
     <div class="card">
       <h2 style="margin-top:0">Results</h2>
-      <div class="tablewrap"><table data-sortview="weekCompetitors">
+      <label class="mobile-only mobile-sort">Sort
+        <select id="weekresultsort">
+          <option value="placement:1" ${ui.sort.weekCompetitors.key === 'placement' && ui.sort.weekCompetitors.dir === 1 ? 'selected' : ''}>Place 1st-last</option>
+          <option value="score:-1" ${ui.sort.weekCompetitors.key === 'score' && ui.sort.weekCompetitors.dir === -1 ? 'selected' : ''}>Score high-low</option>
+          <option value="score:1" ${ui.sort.weekCompetitors.key === 'score' && ui.sort.weekCompetitors.dir === 1 ? 'selected' : ''}>Score low-high</option>
+          <option value="name:1" ${ui.sort.weekCompetitors.key === 'name' && ui.sort.weekCompetitors.dir === 1 ? 'selected' : ''}>Guild A-Z</option>
+          <option value="rankTitle:1" ${ui.sort.weekCompetitors.key === 'rankTitle' && ui.sort.weekCompetitors.dir === 1 ? 'selected' : ''}>Rank A-Z</option>
+        </select>
+      </label>
+      <div class="tablewrap desktop-only"><table data-sortview="weekCompetitors">
         <thead><tr>
           <th data-key="name" class="${sortArrow('weekCompetitors', 'name')}">Guild</th>
           <th data-key="score" class="${sortArrow('weekCompetitors', 'score')}">Score</th>
@@ -1448,13 +1533,32 @@ function renderWeekDetail(id) {
             <td>${esc(r.rankTitle || '—')}</td><td>${ordinal(placements.get(r.id) ?? r.placement)}</td>
           </tr>`).join('')}
         </tbody></table></div>
+      <div class="mobilecards">
+        ${sortWeekCompetitorRows(allCompetitors, placements).map(r => `
+          <div class="mobilecard ${r.ours ? 'highlight' : (isAdmin() ? 'rowlink' : '')}" ${r.ours ? '' : `data-rival="${r.id}"`}>
+            <div class="head">
+              <div>
+                <strong>${esc(r.name)}</strong>
+                <div class="muted small">${esc(r.rankTitle || 'No rank logged')}</div>
+              </div>
+              <div class="metric">
+                <strong>${ordinal(placements.get(r.id) ?? r.placement)}</strong>
+                <div class="muted small">place</div>
+              </div>
+            </div>
+            <div class="section">
+              <span class="chip rose">Score ${fmtNum(r.score)}</span>
+              ${r.ours ? '<span class="chip">Our guild</span>' : ''}
+            </div>
+          </div>`).join('')}
+      </div>
       ${rivals.length ? '' : '<p class="muted small">No rival guilds logged for this week yet.</p>'}
       ${isAdmin() ? '<button class="btn secondary small" id="addrival">+ Add rival</button>' : ''}
     </div>
     <div class="card">
       <h2 style="margin-top:0">Member results</h2>
       ${resultMembers.length ? `
-        <div class="tablewrap"><table>
+        <div class="tablewrap desktop-only"><table>
           <thead><tr><th>Member</th><th>Quests</th><th>Score</th><th>Detail</th></tr></thead>
           <tbody>${resultMembers.map(m => {
             const dr = isAdmin() ? draftFor(m.id) : (saved.get(m.id) || {});
@@ -1473,6 +1577,41 @@ function renderWeekDetail(id) {
             </tr>`;
           }).join('')}
           </tbody></table></div>
+        <div class="mobilecards">
+          ${resultMembers.map(m => {
+            const dr = isAdmin() ? draftFor(m.id) : (saved.get(m.id) || {});
+            const detailCount = (dr.questDetail || []).length;
+            return `
+              <div class="mobilecard">
+                <div class="head">
+                  <div>
+                    <strong>${esc(m.name)}</strong>${m.active ? '' : ' <span class="muted small">(inactive)</span>'}
+                    <div class="muted small">${esc(m.role || 'Member')}</div>
+                  </div>
+                  <div class="metric">
+                    <strong>${fmtNum(dr.finalScore)}</strong>
+                    <div class="muted small">score</div>
+                  </div>
+                </div>
+                ${isAdmin() ? `
+                  <div class="mobilefield">
+                    <label>Quests</label>
+                    <input type="number" inputmode="numeric" data-quests-mobile="${m.id}" value="${dr.questsCompleted ?? ''}">
+                  </div>
+                  <div class="mobilefield">
+                    <label>Score</label>
+                    <input type="number" inputmode="numeric" data-score-mobile="${m.id}" value="${dr.finalScore ?? ''}">
+                  </div>
+                  <div class="actions">
+                    <button class="btn secondary small" data-detail="${m.id}">${detailCount ? detailCount + ' quests' : '+ quests'}</button>
+                  </div>`
+                  : `<div class="meta">
+                    <span class="chip">${fmtNum(dr.questsCompleted)} quests</span>
+                    ${detailCount ? `<button class="btn secondary small" data-viewdetail="${m.id}">${detailCount} quests</button>` : ''}
+                  </div>`}
+              </div>`;
+          }).join('')}
+        </div>
         ${isAdmin() ? `<button class="btn" id="saveresults">Save results</button>
           <p class="muted small">Rows left fully blank aren't stored. Quest detail is optional.</p>` : ''}
         <button class="btn secondary small" id="exportcsv">Export CSV</button>`
@@ -1481,6 +1620,11 @@ function renderWeekDetail(id) {
   `, '#/weeks');
   bindChrome();
   bindSortHeaders('weekCompetitors', () => renderWeekDetail(id));
+  $('#weekresultsort')?.addEventListener('change', e => {
+    const [key, dir] = e.target.value.split(':');
+    ui.sort.weekCompetitors = { key, dir: Number(dir) };
+    renderWeekDetail(id);
+  });
 
   $('#editweek')?.addEventListener('click', () => weekFormDialog(c));
   $('#delweek')?.addEventListener('click', () => {
@@ -1499,6 +1643,10 @@ function renderWeekDetail(id) {
     inp.addEventListener('input', () => { draftFor(inp.dataset.quests).questsCompleted = inp.value === '' ? null : Number(inp.value); refreshWeekScoreTotal(c); }));
   document.querySelectorAll('[data-score]').forEach(inp =>
     inp.addEventListener('input', () => { draftFor(inp.dataset.score).finalScore = inp.value === '' ? null : Number(inp.value); refreshWeekScoreTotal(c); }));
+  document.querySelectorAll('[data-quests-mobile]').forEach(inp =>
+    inp.addEventListener('input', () => { draftFor(inp.dataset.questsMobile).questsCompleted = inp.value === '' ? null : Number(inp.value); refreshWeekScoreTotal(c); }));
+  document.querySelectorAll('[data-score-mobile]').forEach(inp =>
+    inp.addEventListener('input', () => { draftFor(inp.dataset.scoreMobile).finalScore = inp.value === '' ? null : Number(inp.value); refreshWeekScoreTotal(c); }));
   document.querySelectorAll('[data-detail]').forEach(btn => btn.addEventListener('click', () => questDetailDialog(c, btn.dataset.detail, true)));
   document.querySelectorAll('[data-viewdetail]').forEach(btn => btn.addEventListener('click', () => questDetailDialog(c, btn.dataset.viewdetail, false)));
 
