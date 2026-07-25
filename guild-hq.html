@@ -1,0 +1,1799 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#faf5ef">
+  <title>Guild HQ — The Cozy Florist</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>">
+  <style>
+    /* Guild HQ — mobile-first, cozy florist theme */
+    * { box-sizing: border-box; }
+    :root {
+      --bg: #faf5ef; --card: #ffffff; --ink: #3d3230; --muted: #8a7a72; --line: #eee2d8;
+      --accent: #c95f7d; --accent-soft: #f7e3ea; --leaf: #5f8a5e; --leaf-soft: #e5efe2;
+      --gold: #c99a3a; --danger: #b8483f; --radius: 14px; --nav-h: 62px;
+      --shadow: 0 1px 3px rgba(80, 50, 40, .08);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #211c1a; --card: #2c2523; --ink: #f0e6df; --muted: #a99a90; --line: #3d3330;
+        --accent: #e08aa4; --accent-soft: #43302f; --leaf: #8fb98d; --leaf-soft: #2e3a2c;
+        --gold: #d9b060; --danger: #e07a70; --shadow: 0 1px 3px rgba(0, 0, 0, .3);
+      }
+    }
+    html, body { margin: 0; padding: 0; }
+    body {
+      background: var(--bg); color: var(--ink);
+      font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    #app { max-width: 860px; margin: 0 auto; padding: 0 14px calc(var(--nav-h) + 28px); }
+    a { color: var(--accent); text-decoration: none; }
+    h1 { font-size: 1.35rem; margin: 18px 0 4px; }
+    h2 { font-size: 1.05rem; margin: 22px 0 8px; }
+    h3 { font-size: .95rem; margin: 14px 0 6px; }
+    p { margin: 6px 0; }
+    .muted { color: var(--muted); font-size: .85rem; }
+    .small { font-size: .8rem; }
+    .topbar { display: flex; align-items: center; gap: 10px; padding: 14px 2px 4px; }
+    .topbar .title { font-weight: 700; font-size: 1.1rem; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rolechip { font-size: .72rem; font-weight: 600; letter-spacing: .02em; padding: 3px 9px; border-radius: 99px; background: var(--leaf-soft); color: var(--leaf); }
+    .rolechip.admin { background: var(--accent-soft); color: var(--accent); }
+    nav.tabs {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 30;
+      display: flex; justify-content: space-around; background: var(--card); border-top: 1px solid var(--line);
+      padding-bottom: env(safe-area-inset-bottom); height: calc(var(--nav-h) + env(safe-area-inset-bottom));
+    }
+    nav.tabs a { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--muted); font-size: .62rem; font-weight: 600; padding-top: 6px; }
+    nav.tabs a .ico { font-size: 1.25rem; line-height: 1; }
+    nav.tabs a.active { color: var(--accent); }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; margin: 10px 0; box-shadow: var(--shadow); }
+    .cardgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (min-width: 640px) { .cardgrid { grid-template-columns: repeat(4, 1fr); } }
+    .stat { text-align: left; }
+    .stat .num { font-size: 1.55rem; font-weight: 750; letter-spacing: -.02em; }
+    .stat .lbl { color: var(--muted); font-size: .74rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+    .stat .sub { color: var(--muted); font-size: .78rem; }
+    .badge { display: inline-block; font-size: .68rem; font-weight: 700; padding: 2px 8px; border-radius: 99px; vertical-align: middle; background: var(--gold); color: #fff; }
+    .chip { display: inline-flex; align-items: center; gap: 5px; background: var(--leaf-soft); color: var(--leaf); border-radius: 99px; padding: 3px 10px; font-size: .78rem; font-weight: 600; margin: 2px 4px 2px 0; }
+    .chip.rose { background: var(--accent-soft); color: var(--accent); }
+    .chip button { all: unset; cursor: pointer; font-weight: 800; padding: 0 2px; }
+    /* colour-coded labels: member roles, flower rarities, florist ranks */
+    .tag { display: inline-flex; align-items: center; gap: 4px; border-radius: 99px; padding: 2px 9px; font-size: .72rem; font-weight: 700; letter-spacing: .01em; white-space: nowrap; vertical-align: middle; }
+    .tag-red      { background: #fbe3e0; color: #ad3a31; }
+    .tag-yellow   { background: #f8edcd; color: #92701a; }
+    .tag-purple   { background: #eee3f8; color: #7d4bb0; }
+    .tag-blue     { background: #ddecf9; color: #2b6fa8; }
+    .tag-green    { background: #e2efdf; color: #47753f; }
+    .tag-electric { background: linear-gradient(100deg, #4d64f5, #9b3ff0); color: #fff; }
+    .tag-none     { background: var(--line); color: var(--muted); }
+    @media (prefers-color-scheme: dark) {
+      .tag-red      { background: #4a2b28; color: #f0968d; }
+      .tag-yellow   { background: #453a20; color: #e5c069; }
+      .tag-purple   { background: #3c2d4a; color: #c9a1f0; }
+      .tag-blue     { background: #26394b; color: #85c0ea; }
+      .tag-green    { background: #2c3a29; color: #9ecc95; }
+      .tag-electric { background: linear-gradient(100deg, #5a6cff, #a24bff); color: #fff; }
+    }
+    /* rivals estimate cards */
+    .rivalcards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; margin: 10px 0; }
+    .estcard { margin: 0; }
+    .estcard .estname { margin: 0 0 8px; font-size: 1rem; }
+    .estcard .estname[data-editrival] { cursor: pointer; color: var(--accent); }
+    .estrow { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 4px 0; }
+    .estrow input { width: 84px; flex: 0 0 auto; margin: 0; padding: 6px 8px; text-align: right; }
+    .estrow strong { font-variant-numeric: tabular-nums; }
+    .estscores { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; text-align: center; }
+    .estscores span { display: block; }
+    .estscores strong { font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+    .tablewrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 8px -14px; padding: 0 14px; }
+    table { border-collapse: collapse; width: 100%; font-size: .86rem; min-width: 480px; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+    td.wrap { white-space: normal; }
+    th { font-size: .7rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); user-select: none; position: sticky; top: 0; background: var(--card); }
+    th.sortable { cursor: pointer; }
+    th.sortable::after { content: ' ↕'; opacity: .4; }
+    th.sorted-asc::after { content: ' ↑'; opacity: 1; color: var(--accent); }
+    th.sorted-desc::after { content: ' ↓'; opacity: 1; color: var(--accent); }
+    tr.rowlink { cursor: pointer; }
+    tr.rowlink:active { background: var(--accent-soft); }
+    tr.highlight td { background: var(--accent-soft); font-weight: 700; }
+    input, select, textarea, button { font: inherit; color: inherit; }
+    input, select, textarea { width: 100%; padding: 9px 11px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); margin: 2px 0 10px; }
+    input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
+    label { font-size: .78rem; font-weight: 700; color: var(--muted); display: block; }
+    label.inline { display: flex; align-items: center; gap: 8px; font-size: .88rem; color: var(--ink); }
+    input[type="checkbox"] { width: auto; margin: 0; accent-color: var(--accent); }
+    textarea { min-height: 84px; resize: vertical; }
+    .formrow { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+    .formrow3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0 10px; }
+    button.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: none; border-radius: 10px; padding: 10px 16px; background: var(--accent); color: #fff; font-weight: 700; font-size: .9rem; cursor: pointer; margin: 2px 6px 2px 0; }
+    button.btn:active { transform: scale(.98); }
+    button.btn.secondary { background: var(--card); color: var(--ink); border: 1px solid var(--line); }
+    button.btn.danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+    button.btn.small { padding: 6px 11px; font-size: .8rem; border-radius: 8px; }
+    button.btn:disabled { opacity: .5; cursor: default; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
+    .toolbar input, .toolbar select { width: auto; flex: 1; min-width: 120px; margin: 0; }
+    .toolbar select { flex: 0 1 auto; }
+    dialog { border: none; border-radius: var(--radius); background: var(--card); color: var(--ink); width: min(480px, calc(100vw - 32px)); max-height: 86dvh; overflow-y: auto; padding: 18px; box-shadow: 0 12px 40px rgba(0,0,0,.25); }
+    dialog::backdrop { background: rgba(40, 25, 20, .45); }
+    dialog h2 { margin-top: 0; }
+    .bar { display: flex; align-items: center; gap: 8px; margin: 5px 0; font-size: .82rem; }
+    .bar .name { flex: 0 0 108px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .bar .track { flex: 1; background: var(--line); border-radius: 99px; height: 14px; overflow: hidden; }
+    .bar .fill { height: 100%; background: var(--muted); border-radius: 99px; min-width: 2px; }
+    .bar.ours .fill { background: var(--accent); }
+    .bar.ours .name { font-weight: 800; color: var(--accent); }
+    .bar .val { flex: 0 0 56px; text-align: right; font-variant-numeric: tabular-nums; }
+    #toast { position: fixed; left: 50%; bottom: calc(var(--nav-h) + 18px); transform: translateX(-50%) translateY(20px); background: var(--ink); color: var(--bg); padding: 10px 18px; border-radius: 99px; font-size: .85rem; font-weight: 600; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 50; max-width: 90vw; }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    #toast.error { background: var(--danger); color: #fff; }
+    .empty { text-align: center; color: var(--muted); padding: 26px 10px; }
+    .empty .big { font-size: 2rem; }
+    details.quests { margin: 4px 0; }
+    details.quests summary { cursor: pointer; color: var(--accent); font-size: .8rem; font-weight: 700; }
+    .questrow { display: grid; grid-template-columns: 1fr auto 64px 70px auto; gap: 6px; align-items: center; margin: 4px 0; }
+    .questrow select, .questrow input { margin: 0; padding: 6px 8px; }
+    .backlink { display: inline-block; margin-top: 14px; font-weight: 700; font-size: .85rem; }
+    hr { border: none; border-top: 1px solid var(--line); margin: 14px 0; }
+  </style>
+</head>
+<body>
+  <div id="app" aria-live="polite"></div>
+  <div id="toast" role="status"></div>
+
+  <script>
+/* Guild HQ — The Cozy Florist guild tracker (standalone, offline, localStorage). */
+'use strict';
+
+const STORAGE_KEY = 'cozy-guild-hq-v1';
+const MODE_KEY = 'cozy-guild-hq-mode';
+
+// ------------------------------------------------------------------ state --
+
+const state = { mode: localStorage.getItem(MODE_KEY) === 'viewer' ? 'viewer' : 'admin', data: null };
+
+const ui = {
+  sort: {
+    members: { key: 'name', dir: 1 },
+    memberFlowers: { key: 'rarity', dir: -1 },
+    flowers: { key: 'name', dir: 1 },
+    rivals: { key: 'date', dir: -1 },
+    weekCompetitors: { key: 'score', dir: -1 },
+  },
+  search: { members: '', flowers: '', rivals: '' },
+  filters: { membersRole: '', showInactive: false, flowersRarity: '' },
+  weekDraft: { compId: null, results: {} },
+  rivalsWeekId: null, // which competition week the Rivals estimate cards show
+};
+
+const $ = sel => document.querySelector(sel);
+const app = () => $('#app');
+const isAdmin = () => state.mode === 'admin';
+
+// -------------------------------------------------------------- store/db --
+
+function defaultData() {
+  return {
+    settings: {
+      guildName: 'My Guild',
+      memberCapacity: 40,
+      questsMin: 18,
+      questsMax: 24,
+      baseQuestScores: [21, 23, 25, 28, 30],
+      maxMultiplier: 2,
+      bonusMin: 1,
+      bonusMax: 4,
+      potential: {
+        scorePerQuest: 60,   // top base (30) × max multiplier (2)
+        includeBonus: true,
+        avgBonus: 2.5,       // midpoint of bonus range
+        membersOverride: null,
+      },
+      floristRanks: {
+        // Min points behind each profile label — drives the Rivals calculator.
+        // "honored" is a guess (reported as "100+", assumed typo for 1000).
+        standard: 500,
+        senior: 700,
+        honored: 1000,
+        peerless: 1300,
+        supreme: 1400,
+        unknown: 500,        // assumed floor for members showing no label
+      },
+    },
+    members: [],
+    flowers: [],
+    competitions: [],
+  };
+}
+
+function normalize(d) {
+  if (!d || typeof d !== 'object') d = defaultData();
+  const def = defaultData();
+  d.settings = { ...def.settings, ...(d.settings || {}) };
+  d.settings.potential = { ...def.settings.potential, ...((d.settings && d.settings.potential) || {}) };
+  d.settings.floristRanks = { ...def.settings.floristRanks, ...(d.settings.floristRanks || {}) };
+  for (const k of ['members', 'flowers', 'competitions']) {
+    if (!Array.isArray(d[k])) d[k] = [];
+  }
+  for (const m of d.members) {
+    if (!m.flowerBonuses || typeof m.flowerBonuses !== 'object') m.flowerBonuses = {};
+  }
+  for (const f of d.flowers) {
+    if (!('rarity' in f)) f.rarity = null;
+    delete f.categoryId; // categories were superseded by rarity
+  }
+  delete d.categories;
+  return d;
+}
+
+function load() {
+  let raw = null;
+  try { raw = JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch { /* corrupt/empty */ }
+  state.data = normalize(raw);
+}
+
+function persist() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
+    return true;
+  } catch (e) {
+    toast('Could not save — storage full or blocked. ' + (e.message || ''), true);
+    return false;
+  }
+}
+
+// commit: run a mutation, persist, re-render, toast. Returns success boolean.
+function commit(fn, successMsg) {
+  try {
+    fn();
+  } catch (e) {
+    toast(e.message || 'Something went wrong.', true);
+    return false;
+  }
+  persist();
+  render();
+  if (successMsg) toast(successMsg);
+  return true;
+}
+
+// ---------------------------------------------------------------- helpers --
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[c]);
+}
+const fmtNum = n => (n === null || n === undefined || n === '' ? '—' : Number(n).toLocaleString());
+function ordinal(n) {
+  if (n === null || n === undefined || n === '') return '—';
+  n = Number(n);
+  const s = ['th', 'st', 'nd', 'rd'], v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+function localISO(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function fmtDate(iso) {
+  if (!iso) return '—';
+  const [y, m, d] = iso.split('-').map(Number);
+  if (!y || !m || !d) return iso;
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+function weekLabel(c) {
+  if (!c.weekStart) return 'Unscheduled week';
+  if (!c.weekEnd) return fmtDate(c.weekStart);
+  const [y1, m1, d1] = c.weekStart.split('-').map(Number);
+  const [y2, m2, d2] = c.weekEnd.split('-').map(Number);
+  const a = new Date(y1, m1 - 1, d1), b = new Date(y2, m2 - 1, d2);
+  const sameMonth = y1 === y2 && m1 === m2;
+  const left = a.toLocaleDateString(undefined, sameMonth ? { day: 'numeric' } : { day: 'numeric', month: 'short' });
+  const right = b.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  return `${left}–${right}`;
+}
+function mostRecentTuesday() {
+  const d = new Date();
+  d.setDate(d.getDate() - ((d.getDay() - 2 + 7) % 7));
+  return d;
+}
+function flowerById(id) { return state.data.flowers.find(f => f.id === id); }
+function memberById(id) { return state.data.members.find(m => m.id === id); }
+function flowerOwners(flowerId) {
+  return state.data.members.filter(m => (m.flowerIds || []).includes(flowerId));
+}
+
+function uuid() {
+  try { if (window.crypto && crypto.randomUUID) return crypto.randomUUID(); } catch { /* fall through */ }
+  const b = crypto.getRandomValues(new Uint8Array(16));
+  b[6] = (b[6] & 0x0f) | 0x40; b[8] = (b[8] & 0x3f) | 0x80;
+  const s = [...b].map(x => x.toString(16).padStart(2, '0')).join('');
+  return `${s.slice(0, 8)}-${s.slice(8, 12)}-${s.slice(12, 16)}-${s.slice(16, 20)}-${s.slice(20)}`;
+}
+const isNum = v => typeof v === 'number' && Number.isFinite(v);
+const optNum = v => (v === null || v === undefined || v === '' ? null : (isNum(Number(v)) ? Number(v) : null));
+const str = (v, max = 500) => String(v ?? '').slice(0, max);
+const ROLES = ['Leader', 'Co-Leader', 'Elder', 'Elite', 'Member'];
+
+// colour-coded labels ---------------------------------------------------------
+
+const ROLE_COLORS = { Leader: 'red', 'Co-Leader': 'yellow', Elder: 'purple', Elite: 'blue', Member: 'green' };
+const roleTag = role => `<span class="tag tag-${ROLE_COLORS[role] || 'green'}">${esc(role)}</span>`;
+
+const RARITIES = [
+  { key: 'UR', label: 'Ultra Rare', color: 'red' },
+  { key: 'SSR', label: 'Super Special Rare', color: 'yellow' },
+  { key: 'SR', label: 'Super Rare', color: 'purple' },
+  { key: 'R', label: 'Rare', color: 'blue' },
+  { key: 'N', label: 'Normal', color: 'green' },
+];
+const RARITY_KEYS = RARITIES.map(r => r.key);
+function rarityRank(key) { // UR highest, no rarity lowest
+  const i = RARITIES.findIndex(r => r.key === key);
+  return i === -1 ? 0 : RARITIES.length - i;
+}
+function rarityTag(key) {
+  const r = RARITIES.find(x => x.key === key);
+  return r ? `<span class="tag tag-${r.color}" title="${r.label}">${r.key}</span>` : '<span class="muted">—</span>';
+}
+
+const FLORIST_RANKS = [
+  { key: 'standard', label: 'Standard Florist', color: 'blue' },
+  { key: 'senior', label: 'Senior Florist', color: 'purple' },
+  { key: 'honored', label: 'Honored Florist', color: 'yellow' },
+  { key: 'peerless', label: 'Peerless Florist', color: 'red' },
+  { key: 'supreme', label: 'Supreme Florist', color: 'electric' },
+];
+
+const flowerBonus = (m, flowerId) => (m.flowerBonuses || {})[flowerId] || 0;
+
+// ------------------------------------------------- validation / mutations --
+
+function sanitizeMemberPatch(body, existing) {
+  const m = { ...existing };
+  if ('name' in body) m.name = str(body.name, 80);
+  if ('role' in body) m.role = ROLES.includes(body.role) ? body.role : 'Member';
+  if ('timezone' in body) m.timezone = str(body.timezone, 60);
+  if ('active' in body) m.active = Boolean(body.active);
+  if ('notes' in body) m.notes = str(body.notes, 4000);
+  if ('questCount' in body) {
+    const n = optNum(body.questCount);
+    m.questCount = n === null ? existing.questCount : Math.max(0, Math.min(99, Math.round(n)));
+  }
+  if ('potentialOverride' in body) m.potentialOverride = optNum(body.potentialOverride);
+  if ('flowerIds' in body && Array.isArray(body.flowerIds)) {
+    const valid = new Set(state.data.flowers.map(f => f.id));
+    m.flowerIds = [...new Set(body.flowerIds.filter(id => valid.has(id)))];
+  }
+  if ('flowerBonuses' in body && body.flowerBonuses && typeof body.flowerBonuses === 'object') {
+    const valid = new Set(state.data.flowers.map(f => f.id));
+    const bonuses = {};
+    for (const [fid, v] of Object.entries(body.flowerBonuses)) {
+      const n = optNum(v);
+      if (valid.has(fid) && n !== null && n > 0) bonuses[fid] = Math.min(99999, Math.round(n));
+    }
+    m.flowerBonuses = bonuses;
+  }
+  if (m.flowerBonuses) {
+    // a bonus only makes sense on a flower the member still owns
+    const owned = new Set(m.flowerIds || []);
+    for (const fid of Object.keys(m.flowerBonuses)) {
+      if (!owned.has(fid)) delete m.flowerBonuses[fid];
+    }
+  }
+  return m;
+}
+
+const EST_KEYS = ['standard', 'senior', 'honored', 'peerless', 'supreme'];
+
+// rival title-count estimate: {totalPlayers, counts:{standard..supreme}} or null
+function sanitizeEstimate(e) {
+  if (!e || typeof e !== 'object') return null;
+  const counts = {};
+  for (const k of EST_KEYS) {
+    const n = optNum(e.counts && e.counts[k]);
+    counts[k] = n === null ? 0 : Math.max(0, Math.min(99, Math.round(n)));
+  }
+  const totalPlayers = optNum(e.totalPlayers);
+  const hasData = totalPlayers !== null || EST_KEYS.some(k => counts[k] > 0);
+  return hasData ? { totalPlayers, counts } : null;
+}
+
+function sanitizeCompetitionPatch(body, existing) {
+  const c = { ...existing };
+  if ('weekStart' in body) c.weekStart = str(body.weekStart, 10);
+  if ('weekEnd' in body) c.weekEnd = str(body.weekEnd, 10);
+  if ('ourScore' in body) c.ourScore = optNum(body.ourScore);
+  if ('ourRankTitle' in body) c.ourRankTitle = str(body.ourRankTitle, 60);
+  if ('ourPlacement' in body) c.ourPlacement = optNum(body.ourPlacement);
+  if ('notes' in body) c.notes = str(body.notes, 4000);
+  if ('competitors' in body && Array.isArray(body.competitors)) {
+    c.competitors = body.competitors.slice(0, 50).map(r => ({
+      id: typeof r.id === 'string' && r.id ? r.id : uuid(),
+      name: str(r.name, 80), score: optNum(r.score),
+      rankTitle: str(r.rankTitle, 60), placement: optNum(r.placement),
+      estimate: sanitizeEstimate(r.estimate),
+    })).filter(r => r.name);
+  }
+  if ('memberResults' in body && Array.isArray(body.memberResults)) {
+    const memberIds = new Set(state.data.members.map(m => m.id));
+    c.memberResults = body.memberResults.slice(0, 400)
+      .filter(r => memberIds.has(r.memberId))
+      .map(r => ({
+        memberId: r.memberId,
+        finalScore: optNum(r.finalScore),
+        questsCompleted: optNum(r.questsCompleted),
+        questDetail: Array.isArray(r.questDetail)
+          ? r.questDetail.slice(0, 40).map(q => ({ base: optNum(q.base) ?? 0, maxed: Boolean(q.maxed), bonus: optNum(q.bonus) ?? 0 }))
+          : [],
+      }));
+  }
+  return c;
+}
+
+const store = {
+  addMember(body) {
+    const m = sanitizeMemberPatch(body, {
+      id: uuid(), name: '', role: 'Member', timezone: '', active: true,
+      notes: '', questCount: state.data.settings.questsMin, flowerIds: [], flowerBonuses: {}, potentialOverride: null,
+    });
+    if (!m.name) throw new Error('Name is required.');
+    state.data.members.push(m);
+    return m;
+  },
+  updateMember(id, body) {
+    const m = memberById(id);
+    if (!m) throw new Error('Member not found.');
+    const updated = sanitizeMemberPatch(body, m);
+    if (!updated.name) throw new Error('Name is required.');
+    Object.assign(m, updated);
+    return m;
+  },
+  deleteMember(id) {
+    state.data.members = state.data.members.filter(m => m.id !== id);
+    for (const c of state.data.competitions) {
+      c.memberResults = (c.memberResults || []).filter(r => r.memberId !== id);
+    }
+  },
+  addFlower(body) {
+    const name = str(body.name, 80);
+    if (!name) throw new Error('Name is required.');
+    const flower = {
+      id: uuid(), name,
+      rarity: RARITY_KEYS.includes(body.rarity) ? body.rarity : null,
+      points: optNum(body.points) ?? 0,
+    };
+    state.data.flowers.push(flower);
+    return flower;
+  },
+  updateFlower(id, body) {
+    const flower = flowerById(id);
+    if (!flower) throw new Error('Flower not found.');
+    if ('name' in body) {
+      const name = str(body.name, 80);
+      if (!name) throw new Error('Name is required.');
+      flower.name = name;
+    }
+    if ('rarity' in body) flower.rarity = RARITY_KEYS.includes(body.rarity) ? body.rarity : null;
+    if ('points' in body) flower.points = optNum(body.points) ?? flower.points;
+    return flower;
+  },
+  deleteFlower(id) {
+    state.data.flowers = state.data.flowers.filter(f => f.id !== id);
+    for (const m of state.data.members) {
+      m.flowerIds = (m.flowerIds || []).filter(fid => fid !== id);
+      if (m.flowerBonuses) delete m.flowerBonuses[id];
+    }
+  },
+  addCompetition(body) {
+    const c = sanitizeCompetitionPatch(body, {
+      id: uuid(), weekStart: '', weekEnd: '', ourScore: null, ourRankTitle: '',
+      ourPlacement: null, notes: '', memberResults: [], competitors: [],
+    });
+    if (!c.weekStart) throw new Error('Week start date is required.');
+    state.data.competitions.push(c);
+    return c;
+  },
+  updateCompetition(id, body) {
+    const comp = state.data.competitions.find(c => c.id === id);
+    if (!comp) throw new Error('Competition not found.');
+    Object.assign(comp, sanitizeCompetitionPatch(body, comp));
+    return comp;
+  },
+  deleteCompetition(id) {
+    state.data.competitions = state.data.competitions.filter(c => c.id !== id);
+  },
+  updateSettings(body) {
+    const s = state.data.settings;
+    if ('guildName' in body) s.guildName = str(body.guildName, 80) || 'My Guild';
+    if ('memberCapacity' in body) s.memberCapacity = Math.max(1, Math.min(999, optNum(body.memberCapacity) ?? s.memberCapacity));
+    if ('questsMin' in body) s.questsMin = Math.max(0, Math.min(99, optNum(body.questsMin) ?? s.questsMin));
+    if ('questsMax' in body) s.questsMax = Math.max(s.questsMin, Math.min(99, optNum(body.questsMax) ?? s.questsMax));
+    if ('baseQuestScores' in body && Array.isArray(body.baseQuestScores)) {
+      const scores = body.baseQuestScores.map(optNum).filter(n => n !== null && n > 0).slice(0, 20);
+      if (scores.length) s.baseQuestScores = [...new Set(scores)].sort((a, b) => a - b);
+    }
+    if ('maxMultiplier' in body) s.maxMultiplier = Math.max(1, optNum(body.maxMultiplier) ?? s.maxMultiplier);
+    if ('bonusMin' in body) s.bonusMin = Math.max(0, optNum(body.bonusMin) ?? s.bonusMin);
+    if ('bonusMax' in body) s.bonusMax = Math.max(s.bonusMin, optNum(body.bonusMax) ?? s.bonusMax);
+    if (body.potential && typeof body.potential === 'object') {
+      const p = body.potential;
+      if ('scorePerQuest' in p) s.potential.scorePerQuest = Math.max(0, optNum(p.scorePerQuest) ?? s.potential.scorePerQuest);
+      if ('includeBonus' in p) s.potential.includeBonus = Boolean(p.includeBonus);
+      if ('avgBonus' in p) s.potential.avgBonus = Math.max(0, optNum(p.avgBonus) ?? s.potential.avgBonus);
+      if ('membersOverride' in p) s.potential.membersOverride = optNum(p.membersOverride);
+    }
+    if (body.floristRanks && typeof body.floristRanks === 'object') {
+      for (const key of Object.keys(s.floristRanks)) {
+        if (key in body.floristRanks) {
+          const n = optNum(body.floristRanks[key]);
+          if (n !== null) s.floristRanks[key] = Math.max(0, n);
+        }
+      }
+    }
+  },
+  replaceAll(imported) {
+    state.data = normalize(imported);
+  },
+};
+
+// -------------------------------------------------- potential estimate ----
+
+function effScorePerQuest() {
+  const p = state.data.settings.potential;
+  return (p.scorePerQuest || 0) + (p.includeBonus ? (p.avgBonus || 0) : 0);
+}
+function memberPotential(m) {
+  if (m.potentialOverride !== null && m.potentialOverride !== undefined) return m.potentialOverride;
+  const s = state.data.settings;
+  return Math.round((m.questCount ?? s.questsMax) * effScorePerQuest());
+}
+function guildPotential() {
+  const s = state.data.settings, p = s.potential;
+  if (p.membersOverride !== null && p.membersOverride !== undefined) {
+    return { value: Math.round(p.membersOverride * s.questsMax * effScorePerQuest()), basis: `${p.membersOverride} members (manual) × ${s.questsMax} quests × ${effScorePerQuest()} pts` };
+  }
+  const active = state.data.members.filter(m => m.active);
+  if (!active.length) {
+    return { value: Math.round(s.memberCapacity * s.questsMax * effScorePerQuest()), basis: `${s.memberCapacity} capacity × ${s.questsMax} quests × ${effScorePerQuest()} pts` };
+  }
+  return {
+    value: active.reduce((sum, m) => sum + memberPotential(m), 0),
+    basis: `sum over ${active.length} active members (each: own quest count × ${effScorePerQuest()} pts, or their manual override)`,
+  };
+}
+
+// ------------------------------------------------------------ ui utils ----
+
+let toastTimer = null;
+function toast(msg, isError = false) {
+  const el = $('#toast');
+  el.textContent = msg;
+  el.className = 'show' + (isError ? ' error' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = ''; }, 2600);
+}
+function openDialog(html) {
+  document.querySelectorAll('dialog').forEach(d => d.remove());
+  const dlg = document.createElement('dialog');
+  dlg.innerHTML = html;
+  document.body.appendChild(dlg);
+  dlg.addEventListener('close', () => dlg.remove());
+  dlg.showModal();
+  return dlg;
+}
+function sortArrow(view, key) {
+  const s = ui.sort[view];
+  if (s.key !== key) return 'sortable';
+  return 'sortable ' + (s.dir === 1 ? 'sorted-asc' : 'sorted-desc');
+}
+function bindSortHeaders(view, rerender) {
+  document.querySelectorAll(`[data-sortview="${view}"] th[data-key]`).forEach(th => {
+    th.addEventListener('click', () => {
+      const key = th.dataset.key, s = ui.sort[view];
+      if (s.key === key) s.dir = -s.dir; else { s.key = key; s.dir = 1; }
+      rerender();
+    });
+  });
+}
+function cmp(a, b) {
+  if (a === null || a === undefined || a === '') return 1;
+  if (b === null || b === undefined || b === '') return -1;
+  if (typeof a === 'number' && typeof b === 'number') return a - b;
+  return String(a).localeCompare(String(b), undefined, { sensitivity: 'base', numeric: true });
+}
+function downloadFile(filename, text, type = 'text/csv') {
+  const blob = new Blob([text], { type });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+function csvCell(v) {
+  const s = String(v ?? '');
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+// -------------------------------------------------------------- chrome ----
+
+const TABS = [
+  { hash: '#/dashboard', label: 'Home', ico: '🏠' },
+  { hash: '#/members', label: 'Members', ico: '👥' },
+  { hash: '#/flowers', label: 'Flowers', ico: '🌸' },
+  { hash: '#/weeks', label: 'Weeks', ico: '🏆' },
+  { hash: '#/rivals', label: 'Rivals', ico: '⚔️' },
+  { hash: '#/settings', label: 'Settings', ico: '⚙️' },
+];
+
+function chrome(content, activeTab) {
+  const s = state.data.settings;
+  return `
+    <header class="topbar">
+      <span class="title">🌸 ${esc(s.guildName)}</span>
+      <span class="rolechip ${isAdmin() ? 'admin' : ''}">${isAdmin() ? 'Edit mode' : 'View only'}</span>
+      <button class="btn secondary small" id="modetoggle">${isAdmin() ? 'View only' : 'Edit mode'}</button>
+    </header>
+    ${content}
+    <nav class="tabs">
+      ${TABS.map(t => `<a href="${t.hash}" class="${activeTab === t.hash ? 'active' : ''}"><span class="ico">${t.ico}</span>${t.label}</a>`).join('')}
+    </nav>`;
+}
+
+function bindChrome() {
+  $('#modetoggle')?.addEventListener('click', () => {
+    state.mode = isAdmin() ? 'viewer' : 'admin';
+    try { localStorage.setItem(MODE_KEY, state.mode); } catch { /* ignore */ }
+    render();
+    toast(isAdmin() ? 'Edit mode on' : 'View-only mode on');
+  });
+}
+
+// ----------------------------------------------------------- dashboard ----
+
+function renderDashboard() {
+  const d = state.data, s = d.settings;
+  const active = d.members.filter(m => m.active);
+  const totalOwned = d.members.reduce((n, m) => n + (m.flowerIds || []).length, 0);
+  const pot = guildPotential();
+
+  const byRarity = new Map();
+  for (const m of d.members) {
+    for (const fid of m.flowerIds || []) {
+      const f = flowerById(fid);
+      if (!f) continue;
+      byRarity.set(f.rarity || 'none', (byRarity.get(f.rarity || 'none') || 0) + 1);
+    }
+  }
+  const rarityChips = [...RARITIES.map(r => ({ ...r, count: byRarity.get(r.key) || 0 })), { key: 'none', label: 'No rarity', color: 'none', count: byRarity.get('none') || 0 }]
+    .filter(r => r.count)
+    .map(r => `<span class="tag tag-${r.color}" style="margin:2px 4px 2px 0">${r.key === 'none' ? r.label : r.key} · ${r.count}</span>`)
+    .join('') || '<p class="muted">No flowers recorded yet.</p>';
+
+  const comps = [...d.competitions].sort((a, b) => cmp(b.weekStart, a.weekStart));
+  const latest = comps[0];
+  let latestCard = '';
+  if (latest) {
+    const rivals = [...(latest.competitors || [])].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+    const top = rivals[0];
+    latestCard = `
+      <div class="card">
+        <h2 style="margin-top:0">Latest week · ${esc(weekLabel(latest))}</h2>
+        <p>Our score: <strong>${fmtNum(latest.ourScore)}</strong>
+           · Placement: <strong>${ordinal(latest.ourPlacement)}</strong>
+           ${latest.ourRankTitle ? `· ${esc(latest.ourRankTitle)}` : ''}</p>
+        ${top ? `<p class="muted">Top rival: ${esc(top.name)} (${fmtNum(top.score)})</p>` : ''}
+        <a href="#/weeks/${latest.id}" class="backlink">Open week →</a>
+      </div>`;
+  }
+
+  app().innerHTML = chrome(`
+    <h1>Guild strength</h1>
+    <div class="cardgrid">
+      <div class="card stat">
+        <div class="num">${active.length}<span class="muted" style="font-size:1rem">/${s.memberCapacity}</span></div>
+        <div class="lbl">Members</div>
+        <div class="sub">${d.members.length - active.length} inactive</div>
+      </div>
+      <div class="card stat">
+        <div class="num">${totalOwned}</div>
+        <div class="lbl">Flowers owned</div>
+        <div class="sub">${d.flowers.length} types in catalogue</div>
+      </div>
+      <div class="card stat">
+        <div class="num">${fmtNum(pot.value)}</div>
+        <div class="lbl">Max potential <span class="badge">est.</span></div>
+        <div class="sub">tunable in Settings</div>
+      </div>
+      <div class="card stat">
+        <div class="num">${comps.length}</div>
+        <div class="lbl">Weeks logged</div>
+        <div class="sub">${comps.reduce((n, c) => n + (c.competitors || []).length, 0)} rival records</div>
+      </div>
+    </div>
+    <div class="card">
+      <h2 style="margin-top:0">Flowers owned by rarity</h2>
+      ${rarityChips}
+    </div>
+    ${latestCard}
+    <div class="card">
+      <h2 style="margin-top:0">Max potential — how it's calculated</h2>
+      <p class="muted">Estimate: ${esc(pot.basis)}.
+      Flower→quest scoring in game isn't fully known, so tune the inputs under
+      <a href="#/settings">Settings → Potential estimate</a> as the real relationship becomes clear.</p>
+    </div>
+  `, '#/dashboard');
+  bindChrome();
+}
+
+// ------------------------------------------------------------- members ----
+
+function memberRows() {
+  const q = ui.search.members.toLowerCase();
+  let rows = state.data.members.filter(m =>
+    (ui.filters.showInactive || m.active) &&
+    (!ui.filters.membersRole || m.role === ui.filters.membersRole) &&
+    (!q || m.name.toLowerCase().includes(q) || (m.timezone || '').toLowerCase().includes(q)));
+  const { key, dir } = ui.sort.members;
+  const val = m => ({
+    name: m.name, role: ROLES.indexOf(m.role), timezone: m.timezone || null,
+    quests: m.questCount, flowers: (m.flowerIds || []).length, potential: memberPotential(m),
+  })[key];
+  rows.sort((a, b) => dir * cmp(val(a), val(b)));
+  return rows;
+}
+
+function renderMembersTable() {
+  const rows = memberRows();
+  $('#members-table').innerHTML = rows.length ? `
+    <div class="tablewrap">
+    <table data-sortview="members">
+      <thead><tr>
+        <th data-key="name" class="${sortArrow('members', 'name')}">Name</th>
+        <th data-key="role" class="${sortArrow('members', 'role')}">Role</th>
+        <th data-key="timezone" class="${sortArrow('members', 'timezone')}">Timezone</th>
+        <th data-key="quests" class="${sortArrow('members', 'quests')}">Quests</th>
+        <th data-key="flowers" class="${sortArrow('members', 'flowers')}">Flowers</th>
+        <th data-key="potential" class="${sortArrow('members', 'potential')}">Potential</th>
+      </tr></thead>
+      <tbody>
+        ${rows.map(m => `
+          <tr class="rowlink" data-go="#/members/${m.id}">
+            <td>${esc(m.name)}${m.active ? '' : ' <span class="muted small">(inactive)</span>'}</td>
+            <td>${roleTag(m.role)}</td>
+            <td>${esc(m.timezone || '—')}</td>
+            <td>${m.questCount}</td>
+            <td>${(m.flowerIds || []).length}</td>
+            <td>${fmtNum(memberPotential(m))}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>
+    </div>`
+    : `<div class="empty"><div class="big">👥</div>No members match.${isAdmin() ? ' Add your roster with the button above.' : ''}</div>`;
+  bindSortHeaders('members', renderMembersTable);
+  document.querySelectorAll('#members-table [data-go]').forEach(tr =>
+    tr.addEventListener('click', () => { location.hash = tr.dataset.go; }));
+}
+
+function renderMembers() {
+  app().innerHTML = chrome(`
+    <h1>Members</h1>
+    <div class="toolbar">
+      <input type="search" id="msearch" placeholder="Search name or timezone…" value="${esc(ui.search.members)}">
+      <select id="mrole">
+        <option value="">All roles</option>
+        ${ROLES.map(r => `<option ${ui.filters.membersRole === r ? 'selected' : ''}>${r}</option>`).join('')}
+      </select>
+      <label class="inline"><input type="checkbox" id="minactive" ${ui.filters.showInactive ? 'checked' : ''}>Inactive</label>
+      ${isAdmin() ? '<button class="btn small" id="addmember">+ Add</button>' : ''}
+    </div>
+    <div id="members-table"></div>
+  `, '#/members');
+  bindChrome();
+  renderMembersTable();
+  $('#msearch').addEventListener('input', e => { ui.search.members = e.target.value; renderMembersTable(); });
+  $('#mrole').addEventListener('change', e => { ui.filters.membersRole = e.target.value; renderMembersTable(); });
+  $('#minactive').addEventListener('change', e => { ui.filters.showInactive = e.target.checked; renderMembersTable(); });
+  $('#addmember')?.addEventListener('click', () => memberFormDialog(null));
+}
+
+function memberFormDialog(member) {
+  const s = state.data.settings;
+  const m = member || { name: '', role: 'Member', timezone: '', active: true, questCount: s.questsMin, notes: '', potentialOverride: null };
+  const dlg = openDialog(`
+    <h2>${member ? 'Edit member' : 'Add member'}</h2>
+    <form id="mform">
+      <label>In-game name</label>
+      <input name="name" required value="${esc(m.name)}">
+      <div class="formrow">
+        <div>
+          <label>Role</label>
+          <select name="role">${ROLES.map(r => `<option ${m.role === r ? 'selected' : ''}>${r}</option>`).join('')}</select>
+        </div>
+        <div>
+          <label>Timezone</label>
+          <input name="timezone" placeholder="e.g. UTC+1, EST" value="${esc(m.timezone)}">
+        </div>
+      </div>
+      <div class="formrow">
+        <div>
+          <label>Quest count (${s.questsMin}–${s.questsMax})</label>
+          <input name="questCount" type="number" min="0" max="99" value="${m.questCount}">
+        </div>
+        <div>
+          <label>Potential override (optional)</label>
+          <input name="potentialOverride" type="number" placeholder="auto" value="${m.potentialOverride ?? ''}">
+        </div>
+      </div>
+      <label class="inline" style="margin:6px 0 12px"><input type="checkbox" name="active" ${m.active ? 'checked' : ''}>Active member</label>
+      <label>Notes</label>
+      <textarea name="notes">${esc(m.notes)}</textarea>
+      <button class="btn">${member ? 'Save' : 'Add member'}</button>
+      <button class="btn secondary" type="button" data-close>Cancel</button>
+    </form>`);
+  dlg.querySelector('[data-close]').addEventListener('click', () => dlg.close());
+  dlg.querySelector('#mform').addEventListener('submit', e => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const body = {
+      name: f.get('name'), role: f.get('role'), timezone: f.get('timezone'),
+      questCount: f.get('questCount'), potentialOverride: f.get('potentialOverride') || null,
+      active: f.get('active') === 'on', notes: f.get('notes'),
+    };
+    const ok = commit(() => member ? store.updateMember(member.id, body) : store.addMember(body),
+      member ? 'Member saved' : 'Member added');
+    if (ok) dlg.close();
+  });
+}
+
+function renderMemberDetail(id) {
+  const m = memberById(id);
+  if (!m) { location.hash = '#/members'; return; }
+  const flowers = (m.flowerIds || []).map(flowerById).filter(Boolean);
+  const { key, dir } = ui.sort.memberFlowers;
+  const val = f => ({
+    name: f.name, rarity: rarityRank(f.rarity), points: f.points,
+    bonus: flowerBonus(m, f.id), total: (f.points || 0) + flowerBonus(m, f.id),
+  })[key];
+  flowers.sort((a, b) => dir * cmp(val(a), val(b)) || cmp(a.name, b.name));
+  const history = [...state.data.competitions]
+    .map(c => ({ c, r: (c.memberResults || []).find(r => r.memberId === id) }))
+    .filter(x => x.r)
+    .sort((a, b) => cmp(b.c.weekStart, a.c.weekStart));
+
+  app().innerHTML = chrome(`
+    <a href="#/members" class="backlink">← Members</a>
+    <h1>${esc(m.name)} ${m.active ? '' : '<span class="muted" style="font-size:.9rem">(inactive)</span>'}</h1>
+    <div class="card">
+      <p>${roleTag(m.role)} · ${esc(m.timezone || 'no timezone')} · ${m.questCount} quests/week</p>
+      <p>Max potential: <strong>${fmtNum(memberPotential(m))}</strong>
+        ${m.potentialOverride != null ? '<span class="badge">manual</span>' : '<span class="badge">est.</span>'}</p>
+      ${m.notes ? `<p class="muted" style="white-space:pre-wrap">${esc(m.notes)}</p>` : ''}
+      ${isAdmin() ? `<button class="btn small" id="editmember">Edit</button>
+        <button class="btn danger small" id="delmember">Delete</button>` : ''}
+    </div>
+    <div class="card">
+      <h2 style="margin-top:0">Flowers owned (${flowers.length})</h2>
+      ${flowers.length ? `
+        <div class="tablewrap"><table data-sortview="memberFlowers">
+          <thead><tr>
+            <th data-key="name" class="${sortArrow('memberFlowers', 'name')}">Flower</th>
+            <th data-key="rarity" class="${sortArrow('memberFlowers', 'rarity')}">Rarity</th>
+            <th data-key="points" class="${sortArrow('memberFlowers', 'points')}">Points</th>
+            <th data-key="bonus" class="${sortArrow('memberFlowers', 'bonus')}">Bonus</th>
+            <th data-key="total" class="${sortArrow('memberFlowers', 'total')}">Total</th>
+            ${isAdmin() ? '<th></th>' : ''}
+          </tr></thead>
+          <tbody>${flowers.map(f => `
+            <tr>
+              <td>${esc(f.name)}</td>
+              <td>${rarityTag(f.rarity)}</td>
+              <td>${fmtNum(f.points)}</td>
+              <td>${isAdmin()
+                ? `<input type="number" inputmode="numeric" min="0" style="width:70px;margin:0;padding:6px" data-bonus="${f.id}" value="${flowerBonus(m, f.id) || ''}" placeholder="0">`
+                : fmtNum(flowerBonus(m, f.id) || null)}</td>
+              <td><strong data-total="${f.id}">${fmtNum((f.points || 0) + flowerBonus(m, f.id))}</strong></td>
+              ${isAdmin() ? `<td><button class="btn danger small" data-removeflower="${f.id}" title="Remove">✕</button></td>` : ''}
+            </tr>`).join('')}
+          </tbody></table></div>`
+        : '<p class="muted">None recorded.</p>'}
+      ${isAdmin() ? '<div style="margin-top:8px"><button class="btn secondary small" id="addflowers">+ Add flowers</button></div>' : ''}
+    </div>
+    <div class="card">
+      <h2 style="margin-top:0">Weekly performance</h2>
+      ${history.length ? `
+        <div class="tablewrap"><table>
+          <thead><tr><th>Week</th><th>Quests</th><th>Score</th><th></th></tr></thead>
+          <tbody>${history.map(({ c, r }) => `
+            <tr class="rowlink" data-go="#/weeks/${c.id}">
+              <td>${esc(weekLabel(c))}</td>
+              <td>${fmtNum(r.questsCompleted)}</td>
+              <td>${fmtNum(r.finalScore)}</td>
+              <td class="muted small">${(r.questDetail || []).length ? `${r.questDetail.length} quests logged` : ''}</td>
+            </tr>`).join('')}
+          </tbody></table></div>`
+        : '<p class="muted">No results yet — record them inside a competition week.</p>'}
+    </div>
+  `, '#/members');
+  bindChrome();
+  bindSortHeaders('memberFlowers', () => renderMemberDetail(id));
+  document.querySelectorAll('[data-go]').forEach(tr => tr.addEventListener('click', () => { location.hash = tr.dataset.go; }));
+  document.querySelectorAll('[data-bonus]').forEach(inp => {
+    // live total while typing; persist on change (blur/steppers)
+    inp.addEventListener('input', () => {
+      const f = flowerById(inp.dataset.bonus);
+      const total = document.querySelector(`[data-total="${inp.dataset.bonus}"]`);
+      if (f && total) total.textContent = fmtNum((f.points || 0) + (Number(inp.value) || 0));
+    });
+    inp.addEventListener('change', () => {
+      const bonuses = { ...(m.flowerBonuses || {}) };
+      const v = Number(inp.value);
+      if (v > 0) bonuses[inp.dataset.bonus] = v; else delete bonuses[inp.dataset.bonus];
+      commit(() => store.updateMember(m.id, { flowerBonuses: bonuses }), 'Bonus saved');
+    });
+  });
+  $('#editmember')?.addEventListener('click', () => memberFormDialog(m));
+  $('#delmember')?.addEventListener('click', () => {
+    if (!confirm(`Delete ${m.name}? Their weekly results will also be removed. (Tip: mark inactive instead to keep history.)`)) return;
+    if (commit(() => store.deleteMember(m.id), 'Member deleted')) location.hash = '#/members';
+  });
+  document.querySelectorAll('[data-removeflower]').forEach(btn =>
+    btn.addEventListener('click', () => {
+      const flowerIds = (m.flowerIds || []).filter(fid => fid !== btn.dataset.removeflower);
+      commit(() => store.updateMember(m.id, { flowerIds }), 'Flower removed');
+    }));
+  $('#addflowers')?.addEventListener('click', () => addFlowersDialog(m));
+}
+
+function addFlowersDialog(m) {
+  const owned = new Set(m.flowerIds || []);
+  const available = state.data.flowers.filter(f => !owned.has(f.id)).sort((a, b) => cmp(a.name, b.name));
+  const dlg = openDialog(`
+    <h2>Add flowers to ${esc(m.name)}</h2>
+    ${available.length ? `
+      <input type="search" id="fsearch" placeholder="Filter…">
+      <form id="fform" style="max-height:44dvh;overflow-y:auto">
+        ${available.map(f => `
+          <label class="inline" data-fname="${esc(f.name.toLowerCase())}" style="padding:5px 0">
+            <input type="checkbox" name="fid" value="${f.id}">
+            ${esc(f.name)} ${rarityTag(f.rarity)} <span class="muted small">· ${fmtNum(f.points)} pts</span>
+          </label>`).join('')}
+      </form>
+      <button class="btn" id="fsave">Add selected</button>`
+      : '<p class="muted">Every catalogued flower is already owned — add new flowers on the Flowers tab first.</p>'}
+    <button class="btn secondary" data-close>Close</button>`);
+  dlg.querySelector('[data-close]').addEventListener('click', () => dlg.close());
+  dlg.querySelector('#fsearch')?.addEventListener('input', e => {
+    const q = e.target.value.toLowerCase();
+    dlg.querySelectorAll('[data-fname]').forEach(el => el.style.display = el.dataset.fname.includes(q) ? '' : 'none');
+  });
+  dlg.querySelector('#fsave')?.addEventListener('click', () => {
+    const ids = [...dlg.querySelectorAll('input[name="fid"]:checked')].map(i => i.value);
+    if (!ids.length) { dlg.close(); return; }
+    if (commit(() => store.updateMember(m.id, { flowerIds: [...(m.flowerIds || []), ...ids] }), `${ids.length} flower(s) added`)) dlg.close();
+  });
+}
+
+// -------------------------------------------------------------- flowers ---
+
+function renderFlowersTable() {
+  const q = ui.search.flowers.toLowerCase();
+  let rows = state.data.flowers.filter(f =>
+    (!ui.filters.flowersRarity || f.rarity === ui.filters.flowersRarity) &&
+    (!q || f.name.toLowerCase().includes(q)));
+  const { key, dir } = ui.sort.flowers;
+  const val = f => ({ name: f.name, rarity: rarityRank(f.rarity), points: f.points, owners: flowerOwners(f.id).length })[key];
+  rows.sort((a, b) => dir * cmp(val(a), val(b)));
+
+  $('#flowers-table').innerHTML = rows.length ? `
+    <div class="tablewrap">
+    <table data-sortview="flowers">
+      <thead><tr>
+        <th data-key="name" class="${sortArrow('flowers', 'name')}">Flower</th>
+        <th data-key="rarity" class="${sortArrow('flowers', 'rarity')}">Rarity</th>
+        <th data-key="points" class="${sortArrow('flowers', 'points')}">Points</th>
+        <th data-key="owners" class="${sortArrow('flowers', 'owners')}">Owners</th>
+      </tr></thead>
+      <tbody>${rows.map(f => `
+        <tr class="rowlink" data-flower="${f.id}">
+          <td>${esc(f.name)}</td>
+          <td>${rarityTag(f.rarity)}</td>
+          <td>${fmtNum(f.points)}</td>
+          <td>${flowerOwners(f.id).length}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    </div>`
+    : `<div class="empty"><div class="big">🌸</div>No flowers yet.${isAdmin() ? ' Add your first with the button above.' : ''}</div>`;
+  bindSortHeaders('flowers', renderFlowersTable);
+  document.querySelectorAll('#flowers-table [data-flower]').forEach(tr => tr.addEventListener('click', () => flowerDialog(tr.dataset.flower)));
+}
+
+function renderFlowers() {
+  app().innerHTML = chrome(`
+    <h1>Flowers</h1>
+    <div class="toolbar">
+      <input type="search" id="fsearch" placeholder="Search flowers…" value="${esc(ui.search.flowers)}">
+      <select id="frarity">
+        <option value="">All rarities</option>
+        ${RARITIES.map(r => `<option value="${r.key}" ${ui.filters.flowersRarity === r.key ? 'selected' : ''}>${r.key} — ${r.label}</option>`).join('')}
+      </select>
+      ${isAdmin() ? '<button class="btn small" id="addflower">+ Flower</button>' : ''}
+    </div>
+    <div id="flowers-table"></div>
+  `, '#/flowers');
+  bindChrome();
+  renderFlowersTable();
+  $('#fsearch').addEventListener('input', e => { ui.search.flowers = e.target.value; renderFlowersTable(); });
+  $('#frarity').addEventListener('change', e => { ui.filters.flowersRarity = e.target.value; renderFlowersTable(); });
+  $('#addflower')?.addEventListener('click', () => flowerFormDialog(null));
+}
+
+function flowerDialog(flowerId) {
+  const f = flowerById(flowerId);
+  if (!f) return;
+  const owners = flowerOwners(flowerId).sort((a, b) => cmp(a.name, b.name));
+  const dlg = openDialog(`
+    <h2>${esc(f.name)} ${rarityTag(f.rarity)}</h2>
+    <p class="muted">${fmtNum(f.points)} points</p>
+    <h3>Owned by (${owners.length})</h3>
+    ${owners.map(m => `<span class="chip">${esc(m.name)}${flowerBonus(m, f.id) ? ` · +${flowerBonus(m, f.id)}` : ''}</span>`).join('') || '<p class="muted">No owners recorded.</p>'}
+    <hr>
+    ${isAdmin() ? `<button class="btn small" id="editflower">Edit</button>
+      <button class="btn danger small" id="delflower">Delete</button>` : ''}
+    <button class="btn secondary small" data-close>Close</button>`);
+  dlg.querySelector('[data-close]').addEventListener('click', () => dlg.close());
+  dlg.querySelector('#editflower')?.addEventListener('click', () => { dlg.close(); flowerFormDialog(f); });
+  dlg.querySelector('#delflower')?.addEventListener('click', () => {
+    if (!confirm(`Delete ${f.name}? It will be removed from ${owners.length} member(s).`)) return;
+    if (commit(() => store.deleteFlower(f.id), 'Flower deleted')) dlg.close();
+  });
+}
+
+function flowerFormDialog(flower) {
+  const f = flower || { name: '', rarity: '', points: 0 };
+  const dlg = openDialog(`
+    <h2>${flower ? 'Edit flower' : 'Add flower'}</h2>
+    <form id="fform">
+      <label>Name</label>
+      <input name="name" required value="${esc(f.name)}">
+      <div class="formrow">
+        <div>
+          <label>Rarity</label>
+          <select name="rarity">
+            <option value="">No rarity</option>
+            ${RARITIES.map(r => `<option value="${r.key}" ${f.rarity === r.key ? 'selected' : ''}>${r.key} — ${r.label}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label>Points value</label>
+          <input name="points" type="number" step="any" value="${f.points}">
+        </div>
+      </div>
+      <button class="btn">${flower ? 'Save' : 'Add flower'}</button>
+      <button class="btn secondary" type="button" data-close>Cancel</button>
+    </form>`);
+  dlg.querySelector('[data-close]').addEventListener('click', () => dlg.close());
+  dlg.querySelector('#fform').addEventListener('submit', e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const body = { name: fd.get('name'), rarity: fd.get('rarity') || null, points: fd.get('points') };
+    const ok = commit(() => flower ? store.updateFlower(flower.id, body) : store.addFlower(body), flower ? 'Flower saved' : 'Flower added');
+    if (ok) dlg.close();
+  });
+}
+
+// ---------------------------------------------------------------- weeks ---
+
+function renderWeeks() {
+  const comps = [...state.data.competitions].sort((a, b) => cmp(b.weekStart, a.weekStart));
+  app().innerHTML = chrome(`
+    <h1>Competition weeks</h1>
+    ${isAdmin() ? '<button class="btn small" id="addweek">+ New week</button>' : ''}
+    ${comps.length ? comps.map(c => `
+      <div class="card rowlink" data-go="#/weeks/${c.id}">
+        <strong>${esc(weekLabel(c))}</strong>
+        ${c.ourPlacement ? `<span class="chip rose">${ordinal(c.ourPlacement)}</span>` : ''}
+        <p class="muted" style="margin:4px 0 0">
+          Score ${fmtNum(c.ourScore)}${c.ourRankTitle ? ` · ${esc(c.ourRankTitle)}` : ''}
+          · ${(c.competitors || []).length} rivals · ${(c.memberResults || []).length} member results
+        </p>
+      </div>`).join('')
+      : `<div class="empty"><div class="big">🏆</div>No weeks logged yet.</div>`}
+  `, '#/weeks');
+  bindChrome();
+  document.querySelectorAll('[data-go]').forEach(el => el.addEventListener('click', () => { location.hash = el.dataset.go; }));
+  $('#addweek')?.addEventListener('click', () => {
+    const start = mostRecentTuesday();
+    const end = new Date(start); end.setDate(end.getDate() + 5);
+    const dlg = openDialog(`
+      <h2>New competition week</h2>
+      <form id="wform">
+        <label>Week start (Tuesday)</label>
+        <input type="date" name="weekStart" required value="${localISO(start)}">
+        <label>Week end (Sunday)</label>
+        <input type="date" name="weekEnd" value="${localISO(end)}">
+        <button class="btn">Create</button>
+        <button class="btn secondary" type="button" data-close>Cancel</button>
+      </form>`);
+    dlg.querySelector('[data-close]').addEventListener('click', () => dlg.close());
+    dlg.querySelector('#wform').addEventListener('submit', e => {
+      e.preventDefault();
+      const f = new FormData(e.target);
+      try {
+        const c = store.addCompetition({ weekStart: f.get('weekStart'), weekEnd: f.get('weekEnd') });
+        persist();
+        dlg.close();
+        location.hash = `#/weeks/${c.id}`;
+      } catch (err) { toast(err.message, true); }
+    });
+  });
+}
+
+function ensureWeekDraft(c) {
+  if (ui.weekDraft.compId === c.id) return;
+  const results = {};
+  for (const r of c.memberResults || []) {
+    results[r.memberId] = { finalScore: r.finalScore, questsCompleted: r.questsCompleted, questDetail: (r.questDetail || []).map(q => ({ ...q })) };
+  }
+  ui.weekDraft = { compId: c.id, results };
+}
+function draftFor(memberId) {
+  if (!ui.weekDraft.results[memberId]) ui.weekDraft.results[memberId] = { finalScore: null, questsCompleted: null, questDetail: [] };
+  return ui.weekDraft.results[memberId];
+}
+
+function renderWeekDetail(id) {
+  const c = state.data.competitions.find(x => x.id === id);
+  if (!c) { location.hash = '#/weeks'; return; }
+  ensureWeekDraft(c);
+
+  const entries = [
+    { name: state.data.settings.guildName, score: c.ourScore, ours: true },
+    ...(c.competitors || []).map(r => ({ name: r.name, score: r.score, ours: false })),
+  ].filter(e => e.score !== null && e.score !== undefined).sort((a, b) => b.score - a.score);
+  const maxScore = Math.max(1, ...entries.map(e => e.score));
+
+  const { key, dir } = ui.sort.weekCompetitors;
+  const rivals = [...(c.competitors || [])].sort((a, b) => dir * cmp(a[key], b[key]));
+
+  const withData = new Set([...(c.memberResults || []).map(r => r.memberId), ...Object.keys(ui.weekDraft.results)]);
+  const resultMembers = state.data.members.filter(m => m.active || withData.has(m.id)).sort((a, b) => cmp(a.name, b.name));
+  const saved = new Map((c.memberResults || []).map(r => [r.memberId, r]));
+
+  app().innerHTML = chrome(`
+    <a href="#/weeks" class="backlink">← Weeks</a>
+    <h1>${esc(weekLabel(c))}</h1>
+    <div class="card">
+      <h2 style="margin-top:0">Our result</h2>
+      <p>Score <strong>${fmtNum(c.ourScore)}</strong>
+        · Placement <strong>${ordinal(c.ourPlacement)}</strong>
+        ${c.ourRankTitle ? `· ${esc(c.ourRankTitle)}` : ''}</p>
+      ${c.notes ? `<p class="muted" style="white-space:pre-wrap">${esc(c.notes)}</p>` : ''}
+      ${isAdmin() ? `<button class="btn small" id="editweek">Edit</button>
+        <button class="btn danger small" id="delweek">Delete week</button>` : ''}
+    </div>
+    ${entries.length > 1 ? `
+    <div class="card">
+      <h2 style="margin-top:0">Score comparison</h2>
+      ${entries.map(e => `
+        <div class="bar ${e.ours ? 'ours' : ''}">
+          <span class="name">${esc(e.name)}</span>
+          <span class="track"><span class="fill" style="width:${Math.round(100 * e.score / maxScore)}%"></span></span>
+          <span class="val">${fmtNum(e.score)}</span>
+        </div>`).join('')}
+    </div>` : ''}
+    <div class="card">
+      <h2 style="margin-top:0">Rival guilds (${rivals.length})</h2>
+      ${rivals.length ? `
+        <div class="tablewrap"><table data-sortview="weekCompetitors">
+          <thead><tr>
+            <th data-key="name" class="${sortArrow('weekCompetitors', 'name')}">Guild</th>
+            <th data-key="score" class="${sortArrow('weekCompetitors', 'score')}">Score</th>
+            <th data-key="rankTitle" class="${sortArrow('weekCompetitors', 'rankTitle')}">Rank</th>
+            <th data-key="placement" class="${sortArrow('weekCompetitors', 'placement')}">Place</th>
+          </tr></thead>
+          <tbody>${rivals.map(r => `
+            <tr class="${isAdmin() ? 'rowlink' : ''}" data-rival="${r.id}">
+              <td>${esc(r.name)}</td><td>${fmtNum(r.score)}</td>
+              <td>${esc(r.rankTitle || '—')}</td><td>${ordinal(r.placement)}</td>
+            </tr>`).join('')}
+          </tbody></table></div>` : '<p class="muted">No rivals logged for this week yet.</p>'}
+      ${isAdmin() ? '<button class="btn secondary small" id="addrival">+ Add rival</button>' : ''}
+    </div>
+    <div class="card">
+      <h2 style="margin-top:0">Member results</h2>
+      ${resultMembers.length ? `
+        <div class="tablewrap"><table>
+          <thead><tr><th>Member</th><th>Quests</th><th>Score</th><th>Detail</th></tr></thead>
+          <tbody>${resultMembers.map(m => {
+            const dr = isAdmin() ? draftFor(m.id) : (saved.get(m.id) || {});
+            const detailCount = (dr.questDetail || []).length;
+            return `<tr>
+              <td>${esc(m.name)}${m.active ? '' : ' <span class="muted small">(inactive)</span>'}</td>
+              <td>${isAdmin()
+                ? `<input type="number" inputmode="numeric" style="width:74px;margin:0;padding:6px" data-quests="${m.id}" value="${dr.questsCompleted ?? ''}">`
+                : fmtNum(dr.questsCompleted)}</td>
+              <td>${isAdmin()
+                ? `<input type="number" inputmode="numeric" style="width:88px;margin:0;padding:6px" data-score="${m.id}" value="${dr.finalScore ?? ''}">`
+                : fmtNum(dr.finalScore)}</td>
+              <td>${isAdmin()
+                ? `<button class="btn secondary small" data-detail="${m.id}">${detailCount ? detailCount + ' quests' : '+ quests'}</button>`
+                : (detailCount ? `<button class="btn secondary small" data-viewdetail="${m.id}">${detailCount} quests</button>` : '—')}</td>
+            </tr>`;
+          }).join('')}
+          </tbody></table></div>
+        ${isAdmin() ? `<button class="btn" id="saveresults">Save results</button>
+          <p class="muted small">Rows left fully blank aren't stored. Quest detail is optional.</p>` : ''}
+        <button class="btn secondary small" id="exportcsv">Export CSV</button>`
+        : '<p class="muted">No members on the roster yet.</p>'}
+    </div>
+  `, '#/weeks');
+  bindChrome();
+  bindSortHeaders('weekCompetitors', () => renderWeekDetail(id));
+
+  $('#editweek')?.addEventListener('click', () => weekFormDialog(c));
+  $('#delweek')?.addEventListener('click', () => {
+    if (!confirm('Delete this week and all its results and rival records?')) return;
+    if (commit(() => store.deleteCompetition(c.id), 'Week deleted')) location.hash = '#/weeks';
+  });
+  $('#addrival')?.addEventListener('click', () => rivalFormDialog(c, null));
+  if (isAdmin()) {
+    document.querySelectorAll('[data-rival]').forEach(tr =>
+      tr.addEventListener('click', () => {
+        const r = (c.competitors || []).find(x => x.id === tr.dataset.rival);
+        if (r) rivalFormDialog(c, r);
+      }));
+  }
+  document.querySelectorAll('[data-quests]').forEach(inp =>
+    inp.addEventListener('input', () => { draftFor(inp.dataset.quests).questsCompleted = inp.value === '' ? null : Number(inp.value); }));
+  document.querySelectorAll('[data-score]').forEach(inp =>
+    inp.addEventListener('input', () => { draftFor(inp.dataset.score).finalScore = inp.value === '' ? null : Number(inp.value); }));
+  document.querySelectorAll('[data-detail]').forEach(btn => btn.addEventListener('click', () => questDetailDialog(c, btn.dataset.detail, true)));
+  document.querySelectorAll('[data-viewdetail]').forEach(btn => btn.addEventListener('click', () => questDetailDialog(c, btn.dataset.viewdetail, false)));
+
+  $('#saveresults')?.addEventListener('click', () => {
+    const memberResults = Object.entries(ui.weekDraft.results)
+      .filter(([, dr]) => dr.finalScore != null || dr.questsCompleted != null || (dr.questDetail || []).length)
+      .map(([memberId, dr]) => ({ memberId, ...dr }));
+    if (commit(() => store.updateCompetition(c.id, { memberResults }), 'Results saved')) ui.weekDraft = { compId: null, results: {} };
+  });
+  $('#exportcsv')?.addEventListener('click', () => {
+    const rows = [['Member', 'Role', 'Quests completed', 'Final score']];
+    for (const m of resultMembers) {
+      const r = saved.get(m.id);
+      rows.push([m.name, m.role, r?.questsCompleted ?? '', r?.finalScore ?? '']);
+    }
+    rows.push([]);
+    rows.push(['Our guild score', c.ourScore ?? '', 'Placement', c.ourPlacement ?? '']);
+    for (const r of c.competitors || []) rows.push([`Rival: ${r.name}`, r.score ?? '', r.rankTitle ?? '', r.placement ?? '']);
+    downloadFile(`guild-week-${c.weekStart || 'undated'}.csv`, rows.map(row => row.map(csvCell).join(',')).join('\n'));
+    toast('CSV exported (saved data only)');
+  });
+}
+
+function weekFormDialog(c) {
+  const dlg = openDialog(`
+    <h2>Edit week</h2>
+    <form id="wform">
+      <div class="formrow">
+        <div><label>Start</label><input type="date" name="weekStart" value="${esc(c.weekStart)}"></div>
+        <div><label>End</label><input type="date" name="weekEnd" value="${esc(c.weekEnd)}"></div>
+      </div>
+      <div class="formrow3">
+        <div><label>Our score</label><input type="number" name="ourScore" value="${c.ourScore ?? ''}"></div>
+        <div><label>Rank title</label><input name="ourRankTitle" value="${esc(c.ourRankTitle)}"></div>
+        <div><label>Placement</label><input type="number" name="ourPlacement" min="1" max="10" value="${c.ourPlacement ?? ''}"></div>
+      </div>
+      <label>Notes</label>
+      <textarea name="notes">${esc(c.notes)}</textarea>
+      <button class="btn">Save</button>
+      <button class="btn secondary" type="button" data-close>Cancel</button>
+    </form>`);
+  dlg.querySelector('[data-close]').addEventListener('click', () => dlg.close());
+  dlg.querySelector('#wform').addEventListener('submit', e => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const ok = commit(() => store.updateCompetition(c.id, {
+      weekStart: f.get('weekStart'), weekEnd: f.get('weekEnd'),
+      ourScore: f.get('ourScore') || null, ourRankTitle: f.get('ourRankTitle'),
+      ourPlacement: f.get('ourPlacement') || null, notes: f.get('notes'),
+    }), 'Week saved');
+    if (ok) dlg.close();
+  });
+}
+
+function rivalFormDialog(c, rival) {
+  const r = rival || { name: '', score: null, rankTitle: '', placement: null };
+  const dlg = openDialog(`
+    <h2>${rival ? 'Edit rival' : 'Add rival guild'}</h2>
+    <form id="rform">
+      <label>Guild name</label>
+      <input name="name" required value="${esc(r.name)}" list="rivalnames">
+      <datalist id="rivalnames">
+        ${[...new Set(state.data.competitions.flatMap(x => (x.competitors || []).map(v => v.name)))].sort().map(n => `<option value="${esc(n)}">`).join('')}
+      </datalist>
+      <div class="formrow3">
+        <div><label>Score</label><input type="number" name="score" value="${r.score ?? ''}"></div>
+        <div><label>Rank title</label><input name="rankTitle" value="${esc(r.rankTitle)}"></div>
+        <div><label>Placement</label><input type="number" name="placement" min="1" max="10" value="${r.placement ?? ''}"></div>
+      </div>
+      <button class="btn">${rival ? 'Save' : 'Add'}</button>
+      ${rival ? '<button class="btn danger" type="button" id="delrival">Delete</button>' : ''}
+      <button class="btn secondary" type="button" data-close>Cancel</button>
+    </form>`);
+  dlg.querySelector('[data-close]').addEventListener('click', () => dlg.close());
+  dlg.querySelector('#rform').addEventListener('submit', e => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const entry = { id: rival?.id, name: f.get('name'), score: f.get('score') || null, rankTitle: f.get('rankTitle'), placement: f.get('placement') || null, estimate: rival?.estimate ?? null };
+    const competitors = rival ? (c.competitors || []).map(x => x.id === rival.id ? entry : x) : [...(c.competitors || []), entry];
+    const ok = commit(() => store.updateCompetition(c.id, { competitors }), rival ? 'Rival saved' : 'Rival added');
+    if (ok) dlg.close();
+  });
+  dlg.querySelector('#delrival')?.addEventListener('click', () => {
+    const competitors = (c.competitors || []).filter(x => x.id !== rival.id);
+    if (commit(() => store.updateCompetition(c.id, { competitors }), 'Rival removed')) dlg.close();
+  });
+}
+
+function questDetailDialog(c, memberId, editable) {
+  const m = memberById(memberId);
+  const s = state.data.settings;
+  const dr = editable ? draftFor(memberId) : ((c.memberResults || []).find(r => r.memberId === memberId) || { questDetail: [] });
+  const rows = () => dr.questDetail || (dr.questDetail = []);
+  const questScore = q => Math.round(q.base * (q.maxed ? s.maxMultiplier : 1) + (q.bonus || 0));
+  const total = () => rows().reduce((n, q) => n + questScore(q), 0);
+
+  function body() {
+    return `
+      <h2>Quests — ${esc(m ? m.name : 'member')}</h2>
+      <p class="muted small">Base scores come from Settings. Maxed = ×${s.maxMultiplier}. Bonus ${s.bonusMin}–${s.bonusMax}.</p>
+      <div id="qrows">
+        ${rows().map((q, i) => `
+          <div class="questrow">
+            ${editable ? `
+              <select data-qbase="${i}">
+                ${s.baseQuestScores.map(b => `<option value="${b}" ${q.base === b ? 'selected' : ''}>${b}</option>`).join('')}
+              </select>
+              <label class="inline"><input type="checkbox" data-qmax="${i}" ${q.maxed ? 'checked' : ''}>max</label>
+              <input type="number" data-qbonus="${i}" min="0" max="${s.bonusMax}" value="${q.bonus || 0}" title="bonus">
+              <strong style="text-align:right">${questScore(q)}</strong>
+              <button class="btn danger small" data-qdel="${i}">✕</button>`
+              : `
+              <span>Base ${q.base}</span><span>${q.maxed ? 'maxed' : ''}</span>
+              <span>+${q.bonus || 0}</span><strong style="text-align:right">${questScore(q)}</strong><span></span>`}
+          </div>`).join('') || '<p class="muted">No quests logged.</p>'}
+      </div>
+      <p><strong>Total: ${total()}</strong> · ${rows().length} quests</p>
+      ${editable ? `<button class="btn secondary small" id="qadd">+ Quest</button>
+        <button class="btn small" id="qapply">Use total as score & count</button><hr>` : ''}
+      <button class="btn secondary" data-close>${editable ? 'Done' : 'Close'}</button>`;
+  }
+  const dlg = openDialog(body());
+  function bind() {
+    dlg.querySelector('[data-close]').addEventListener('click', () => { dlg.close(); if (editable) renderWeekDetail(c.id); });
+    if (!editable) return;
+    dlg.querySelector('#qadd').addEventListener('click', () => { rows().push({ base: s.baseQuestScores[s.baseQuestScores.length - 1] || 0, maxed: false, bonus: 0 }); rerender(); });
+    dlg.querySelector('#qapply').addEventListener('click', () => {
+      dr.finalScore = total(); dr.questsCompleted = rows().length;
+      toast(`Set score ${dr.finalScore}, ${dr.questsCompleted} quests — remember to Save results`);
+      dlg.close(); renderWeekDetail(c.id);
+    });
+    dlg.querySelectorAll('[data-qbase]').forEach(el => el.addEventListener('change', () => { rows()[el.dataset.qbase].base = Number(el.value); rerender(); }));
+    dlg.querySelectorAll('[data-qmax]').forEach(el => el.addEventListener('change', () => { rows()[el.dataset.qmax].maxed = el.checked; rerender(); }));
+    dlg.querySelectorAll('[data-qbonus]').forEach(el => el.addEventListener('input', () => { rows()[el.dataset.qbonus].bonus = Number(el.value) || 0; rerender(); }));
+    dlg.querySelectorAll('[data-qdel]').forEach(el => el.addEventListener('click', () => { rows().splice(Number(el.dataset.qdel), 1); rerender(); }));
+  }
+  function rerender() { dlg.innerHTML = body(); bind(); }
+  bind();
+}
+
+// --------------------------------------------------------------- rivals ---
+
+function rivalRecords() {
+  const out = [];
+  for (const c of state.data.competitions) {
+    for (const r of c.competitors || []) out.push({ comp: c, r, date: c.weekStart || '' });
+  }
+  return out;
+}
+
+function renderRivalsTable() {
+  const q = ui.search.rivals.toLowerCase();
+  let rows = rivalRecords().filter(x => !q || x.r.name.toLowerCase().includes(q));
+  const { key, dir } = ui.sort.rivals;
+  const val = x => ({ date: x.date, name: x.r.name, score: x.r.score, placement: x.r.placement })[key];
+  rows.sort((a, b) => dir * cmp(val(a), val(b)));
+
+  const names = [...new Set(rows.map(x => x.r.name.toLowerCase()))];
+  let summary = '';
+  if (q && names.length === 1 && rows.length) {
+    const scores = rows.map(x => x.r.score).filter(v => v != null);
+    const best = scores.length ? Math.max(...scores) : null;
+    const avg = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+    const last = [...rows].sort((a, b) => cmp(b.date, a.date))[0];
+    summary = `
+      <div class="card">
+        <h2 style="margin-top:0">${esc(last.r.name)}</h2>
+        <p>Faced <strong>${rows.length}×</strong> · best score <strong>${fmtNum(best)}</strong> · avg <strong>${fmtNum(avg)}</strong></p>
+        <p class="muted">Last met ${esc(weekLabel(last.comp))}: scored ${fmtNum(last.r.score)}, placed ${ordinal(last.r.placement)}${last.r.rankTitle ? ` (${esc(last.r.rankTitle)})` : ''}.</p>
+      </div>`;
+  }
+
+  $('#rivals-table').innerHTML = summary + (rows.length ? `
+    <div class="tablewrap">
+    <table data-sortview="rivals">
+      <thead><tr>
+        <th data-key="date" class="${sortArrow('rivals', 'date')}">Week</th>
+        <th data-key="name" class="${sortArrow('rivals', 'name')}">Guild</th>
+        <th data-key="score" class="${sortArrow('rivals', 'score')}">Score</th>
+        <th>Rank</th>
+        <th data-key="placement" class="${sortArrow('rivals', 'placement')}">Place</th>
+      </tr></thead>
+      <tbody>${rows.map(x => `
+        <tr class="rowlink" data-name="${esc(x.r.name)}" data-week="${x.comp.id}">
+          <td>${esc(weekLabel(x.comp))}</td>
+          <td>${esc(x.r.name)}</td>
+          <td>${fmtNum(x.r.score)}</td>
+          <td>${esc(x.r.rankTitle || '—')}</td>
+          <td>${ordinal(x.r.placement)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    </div>
+    <p class="muted small">Tap a row to see that guild's full history; tap it again to open that week.</p>`
+    : `<div class="empty"><div class="big">⚔️</div>No rival records${q ? ' match' : ' yet — log them inside each competition week'}.</div>`);
+
+  bindSortHeaders('rivals', renderRivalsTable);
+  document.querySelectorAll('#rivals-table tr[data-name]').forEach(tr =>
+    tr.addEventListener('click', () => {
+      if (ui.search.rivals.toLowerCase() === tr.dataset.name.toLowerCase()) {
+        location.hash = `#/weeks/${tr.dataset.week}`;
+      } else {
+        ui.search.rivals = tr.dataset.name;
+        $('#rsearch').value = tr.dataset.name;
+        renderRivalsTable();
+      }
+    }));
+}
+
+// Estimate cards: one per rival guild in a competition week. Count the florist
+// titles their members display in-game; each title means "earned ≥ that many
+// points", so min = title floors, max = each member up to the NEXT title's
+// floor (top title capped at our per-member max-potential estimate). Untitled
+// members count at the assumed value from Settings in both. Saved on the
+// week's rival record, so the actual score at week's end shows the error.
+
+function maxPerMemberEst() {
+  const s = state.data.settings;
+  return Math.round(s.questsMax * effScorePerQuest());
+}
+
+function rankBounds(key) {
+  const fr = state.data.settings.floristRanks;
+  const i = FLORIST_RANKS.findIndex(r => r.key === key);
+  const min = fr[key] || 0;
+  const next = FLORIST_RANKS[i + 1];
+  return { min, max: next ? Math.max(min, fr[next.key] || 0) : Math.max(min, maxPerMemberEst()) };
+}
+
+function emptyEstimate() {
+  const counts = {};
+  for (const r of FLORIST_RANKS) counts[r.key] = 0;
+  return { totalPlayers: null, counts };
+}
+
+function estimateStats(est) {
+  const fr = state.data.settings.floristRanks;
+  let min = 0, max = 0, titled = 0;
+  for (const r of FLORIST_RANKS) {
+    const c = (est.counts || {})[r.key] || 0;
+    const b = rankBounds(r.key);
+    min += c * b.min;
+    max += c * b.max;
+    titled += c;
+  }
+  const total = est.totalPlayers ?? titled;
+  const untitled = Math.max(0, total - titled);
+  min += untitled * (fr.unknown || 0);
+  max += untitled * (fr.unknown || 0);
+  return {
+    min, max, avg: Math.round((min + max) / 2), titled, untitled, total,
+    knownPct: total ? Math.round(1000 * titled / total) / 10 : null,
+  };
+}
+
+function predictionErr(score, avg) {
+  if (score === null || score === undefined || score === '') return '—';
+  const err = Math.round(score - avg);
+  const pct = score ? Math.round(1000 * Math.abs(err) / score) / 10 : 0;
+  return `${err >= 0 ? '+' : '−'}${fmtNum(Math.abs(err))} (${pct}%)`;
+}
+
+function rivalEstCard(r) {
+  const est = r.estimate || emptyEstimate();
+  const stats = estimateStats(est);
+  const ranksDesc = [...FLORIST_RANKS].reverse();
+  const num = (key, value, ph) => isAdmin()
+    ? `<input type="number" inputmode="numeric" min="0" data-est="${key}" value="${value ?? ''}" placeholder="${ph}">`
+    : `<strong>${fmtNum(value)}</strong>`;
+  return `
+    <div class="card estcard" data-estcard="${r.id}">
+      <h3 class="estname" ${isAdmin() ? `data-editrival="${r.id}" title="Edit rival"` : ''}>${esc(r.name)}</h3>
+      <div class="estrow"><span class="muted small">Total players</span>${num('totalPlayers', est.totalPlayers, '?')}</div>
+      ${ranksDesc.map(rank => `
+        <div class="estrow"><span class="tag tag-${rank.color}">${rank.label}</span>
+          ${num(rank.key, (est.counts || {})[rank.key] || null, '0')}</div>`).join('')}
+      <div class="estrow"><span class="tag tag-none">Untitled</span><strong data-out="untitled">${stats.untitled}</strong></div>
+      <div class="estrow muted small"><span>Known titles</span><span data-out="knownPct">${stats.knownPct === null ? '—' : stats.knownPct + '%'}</span></div>
+      <hr>
+      <div class="estscores">
+        <div><span class="muted small">Min</span><strong data-out="min">${fmtNum(stats.min)}</strong></div>
+        <div><span class="muted small">Average</span><strong data-out="avg">${fmtNum(stats.avg)}</strong></div>
+        <div><span class="muted small">Max</span><strong data-out="max">${fmtNum(stats.max)}</strong></div>
+      </div>
+      <hr>
+      <div class="estrow"><span class="muted small">Actual comp score</span>${num('score', r.score, 'TBD')}</div>
+      <div class="estrow"><span class="muted small">Prediction error</span><strong data-out="err">${predictionErr(r.score, stats.avg)}</strong></div>
+    </div>`;
+}
+
+function readCardEstimate(card) {
+  const val = key => {
+    const el = card.querySelector(`[data-est="${key}"]`);
+    return el && el.value !== '' ? Number(el.value) : null;
+  };
+  const counts = {};
+  for (const r of FLORIST_RANKS) counts[r.key] = Math.max(0, Math.round(val(r.key) || 0));
+  return { estimate: { totalPlayers: val('totalPlayers'), counts }, score: val('score') };
+}
+
+function refreshEstCard(card) {
+  const { estimate, score } = readCardEstimate(card);
+  const stats = estimateStats(estimate);
+  const set = (key, text) => { card.querySelector(`[data-out="${key}"]`).textContent = text; };
+  set('untitled', stats.untitled);
+  set('knownPct', stats.knownPct === null ? '—' : stats.knownPct + '%');
+  set('min', fmtNum(stats.min));
+  set('avg', fmtNum(stats.avg));
+  set('max', fmtNum(stats.max));
+  set('err', predictionErr(score, stats.avg));
+}
+
+// persist quietly (no re-render) so tabbing between card inputs isn't interrupted
+function persistEstimates(c) {
+  const competitors = (c.competitors || []).map(r => {
+    const card = document.querySelector(`[data-estcard="${r.id}"]`);
+    return card ? { ...r, ...readCardEstimate(card) } : r;
+  });
+  try {
+    store.updateCompetition(c.id, { competitors });
+    persist();
+  } catch (e) {
+    toast(e.message || 'Save failed', true);
+  }
+}
+
+function renderRivals() {
+  const comps = [...state.data.competitions].sort((a, b) => cmp(b.weekStart, a.weekStart));
+  if (!comps.some(x => x.id === ui.rivalsWeekId)) ui.rivalsWeekId = comps[0]?.id ?? null;
+  const c = comps.find(x => x.id === ui.rivalsWeekId) || null;
+  const rivals = c ? [...(c.competitors || [])].sort((a, b) => cmp(a.name, b.name)) : [];
+
+  app().innerHTML = chrome(`
+    <h1>Rivals</h1>
+    ${comps.length ? `
+      <div class="toolbar">
+        <select id="rweek">${comps.map(x =>
+          `<option value="${x.id}" ${c && x.id === c.id ? 'selected' : ''}>${esc(weekLabel(x))}</option>`).join('')}</select>
+        ${isAdmin() && c ? '<button class="btn small" id="estaddrival">+ Add rival</button>' : ''}
+      </div>
+      <p class="muted small">Fill each card from the florist titles that guild's players display
+        in-game. Min uses each title's point floor, max lets every member reach the next title's
+        floor; untitled players count at the assumed value. Floors and assumptions are editable
+        in Settings. <span class="badge">est.</span></p>
+      ${rivals.length
+        ? `<div class="rivalcards">${rivals.map(rivalEstCard).join('')}</div>`
+        : `<div class="empty"><div class="big">⚔️</div>No rivals in this week yet.${isAdmin() ? ' Add them with the button above.' : ''}</div>`}
+      <p class="muted small">Our own max potential: <strong>${fmtNum(guildPotential().value)}</strong> — the number to push past theirs.</p>`
+      : '<div class="empty"><div class="big">⚔️</div>Create a competition week first (Weeks tab), then estimate rivals here.</div>'}
+    <h2>Competitor history</h2>
+    <div class="toolbar">
+      <input type="search" id="rsearch" placeholder="Search guild name…" value="${esc(ui.search.rivals)}">
+    </div>
+    <div id="rivals-table"></div>
+  `, '#/rivals');
+  bindChrome();
+  renderRivalsTable();
+  $('#rsearch').addEventListener('input', e => { ui.search.rivals = e.target.value; renderRivalsTable(); });
+  $('#rweek')?.addEventListener('change', e => { ui.rivalsWeekId = e.target.value; renderRivals(); });
+  $('#estaddrival')?.addEventListener('click', () => rivalFormDialog(c, null));
+  document.querySelectorAll('[data-editrival]').forEach(el =>
+    el.addEventListener('click', () => {
+      const r = (c.competitors || []).find(x => x.id === el.dataset.editrival);
+      if (r) rivalFormDialog(c, r);
+    }));
+  document.querySelectorAll('[data-estcard]').forEach(card => {
+    card.querySelectorAll('[data-est]').forEach(inp => {
+      inp.addEventListener('input', () => refreshEstCard(card));
+      inp.addEventListener('change', () => persistEstimates(c));
+    });
+  });
+}
+
+// ------------------------------------------------------------- settings ---
+
+function renderSettings() {
+  const s = state.data.settings;
+  const ro = isAdmin() ? '' : 'disabled';
+  app().innerHTML = chrome(`
+    <h1>Settings</h1>
+    ${isAdmin() ? '' : '<p class="muted">You\'re in view-only mode. Tap “Edit mode” at the top to change settings.</p>'}
+    <form id="sform">
+      <div class="card">
+        <h2 style="margin-top:0">Guild</h2>
+        <label>Guild name</label>
+        <input name="guildName" ${ro} value="${esc(s.guildName)}">
+        <label>Member capacity (grows as the guild levels)</label>
+        <input name="memberCapacity" ${ro} type="number" min="1" value="${s.memberCapacity}">
+      </div>
+      <div class="card">
+        <h2 style="margin-top:0">Quest scoring rules</h2>
+        <p class="muted small">Editable so the tool survives game rebalances.</p>
+        <div class="formrow">
+          <div><label>Quests per member — min</label><input name="questsMin" ${ro} type="number" value="${s.questsMin}"></div>
+          <div><label>Quests per member — max</label><input name="questsMax" ${ro} type="number" value="${s.questsMax}"></div>
+        </div>
+        <label>Base quest scores (comma-separated)</label>
+        <input name="baseQuestScores" ${ro} value="${s.baseQuestScores.join(', ')}">
+        <div class="formrow3">
+          <div><label>Max multiplier</label><input name="maxMultiplier" ${ro} type="number" step="any" value="${s.maxMultiplier}"></div>
+          <div><label>Bonus min</label><input name="bonusMin" ${ro} type="number" value="${s.bonusMin}"></div>
+          <div><label>Bonus max</label><input name="bonusMax" ${ro} type="number" value="${s.bonusMax}"></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2 style="margin-top:0">Potential estimate <span class="badge">est.</span></h2>
+        <p class="muted small">Member potential = quest count × (score per quest + avg bonus if enabled),
+          unless a member has a manual override. Guild potential sums active members —
+          or uses the manual member count below if set. Tune once the real flower→quest
+          relationship is clear.</p>
+        <div class="formrow">
+          <div><label>Score per quest</label><input name="p_scorePerQuest" ${ro} type="number" step="any" value="${s.potential.scorePerQuest}"></div>
+          <div><label>Avg bonus per quest</label><input name="p_avgBonus" ${ro} type="number" step="any" value="${s.potential.avgBonus}"></div>
+        </div>
+        <label class="inline" style="margin-bottom:10px">
+          <input type="checkbox" name="p_includeBonus" ${ro} ${s.potential.includeBonus ? 'checked' : ''}>Include bonus in estimate
+        </label>
+        <label>Manual member count (blank = use roster)</label>
+        <input name="p_membersOverride" ${ro} type="number" placeholder="auto" value="${s.potential.membersOverride ?? ''}">
+        ${isAdmin() ? '<button class="btn secondary small" type="button" id="deriveddefaults">Reset to derived defaults</button>' : ''}
+      </div>
+      <div class="card">
+        <h2 style="margin-top:0">Florist rank labels</h2>
+        <p class="muted small">Minimum points behind each profile label — powers the
+          <a href="#/rivals">Rivals score calculator</a>. Editable in case the game rebalances.</p>
+        <div class="formrow">
+          ${FLORIST_RANKS.map(r => `
+            <div>
+              <label><span class="tag tag-${r.color}">${r.label}</span></label>
+              <input name="fr_${r.key}" ${ro} type="number" min="0" value="${s.floristRanks[r.key]}">
+            </div>`).join('')}
+          <div>
+            <label><span class="tag tag-none">Untitled — assumed each</span></label>
+            <input name="fr_unknown" ${ro} type="number" min="0" value="${s.floristRanks.unknown}">
+          </div>
+        </div>
+      </div>
+      ${isAdmin() ? '<button class="btn" style="width:100%">Save settings</button>' : ''}
+    </form>
+    <div class="card">
+      <h2 style="margin-top:0">Data & sharing</h2>
+      <p class="muted small">This app stores everything in <strong>this browser on this device only</strong> —
+        there's no server, so data doesn't sync between people. To share or move it:
+        one person keeps the master copy, <strong>exports</strong> the JSON, and the others
+        <strong>import</strong> it. Export regularly as your backup.</p>
+      <button class="btn secondary small" id="backup">Export data (JSON)</button>
+      <button class="btn secondary small" id="importbtn">Import / restore JSON</button>
+      <button class="btn small" id="exportall">Export full report (CSV)</button>
+      <input type="file" id="importfile" accept="application/json,.json" hidden>
+    </div>
+  `, '#/settings');
+  bindChrome();
+
+  $('#backup').addEventListener('click', () =>
+    downloadFile(`guild-backup-${localISO(new Date())}.json`, JSON.stringify(state.data, null, 2), 'application/json'));
+
+  $('#importbtn').addEventListener('click', () => {
+    if (!isAdmin()) { toast('Switch to Edit mode to import.', true); return; }
+    $('#importfile').click();
+  });
+  $('#importfile').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      let parsed;
+      try { parsed = JSON.parse(reader.result); }
+      catch { toast('That file isn\'t valid JSON.', true); return; }
+      const looksRight = parsed && typeof parsed === 'object' &&
+        (Array.isArray(parsed.members) || Array.isArray(parsed.flowers) || Array.isArray(parsed.competitions) || parsed.settings);
+      if (!looksRight) { toast('That doesn\'t look like a Guild HQ backup.', true); return; }
+      const counts = `${(parsed.members || []).length} members, ${(parsed.flowers || []).length} flowers, ${(parsed.competitions || []).length} weeks`;
+      if (!confirm(`Replace ALL current data with this file (${counts})? This cannot be undone — export your current data first if unsure.`)) return;
+      commit(() => store.replaceAll(parsed), 'Data imported');
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+
+  $('#exportall').addEventListener('click', exportFullReport);
+
+  $('#deriveddefaults')?.addEventListener('click', () => {
+    const form = $('#sform');
+    const scores = String(form.baseQuestScores.value).split(',').map(v => Number(v.trim())).filter(n => n > 0);
+    const top = scores.length ? Math.max(...scores) : 30;
+    form.p_scorePerQuest.value = top * (Number(form.maxMultiplier.value) || 2);
+    form.p_avgBonus.value = ((Number(form.bonusMin.value) || 0) + (Number(form.bonusMax.value) || 0)) / 2;
+    toast('Derived defaults filled — hit Save settings to apply');
+  });
+
+  if (isAdmin()) {
+    $('#sform').addEventListener('submit', e => {
+      e.preventDefault();
+      const f = new FormData(e.target);
+      commit(() => store.updateSettings({
+        guildName: f.get('guildName'), memberCapacity: f.get('memberCapacity'),
+        questsMin: f.get('questsMin'), questsMax: f.get('questsMax'),
+        baseQuestScores: String(f.get('baseQuestScores')).split(',').map(v => Number(v.trim())),
+        maxMultiplier: f.get('maxMultiplier'), bonusMin: f.get('bonusMin'), bonusMax: f.get('bonusMax'),
+        potential: {
+          scorePerQuest: f.get('p_scorePerQuest'), avgBonus: f.get('p_avgBonus'),
+          includeBonus: f.get('p_includeBonus') === 'on', membersOverride: f.get('p_membersOverride') || null,
+        },
+        floristRanks: Object.fromEntries(
+          [...FLORIST_RANKS.map(r => r.key), 'unknown'].map(k => [k, f.get(`fr_${k}`)])),
+      }), 'Settings saved');
+    });
+  }
+}
+
+function exportFullReport() {
+  const rows = [['Week', 'Member', 'Role', 'Quests', 'Score']];
+  const comps = [...state.data.competitions].sort((a, b) => cmp(a.weekStart, b.weekStart));
+  for (const c of comps) {
+    for (const r of c.memberResults || []) {
+      const m = memberById(r.memberId);
+      rows.push([weekLabel(c), m ? m.name : '(removed)', m ? m.role : '', r.questsCompleted ?? '', r.finalScore ?? '']);
+    }
+  }
+  if (rows.length === 1) { toast('No member results to export yet.', true); return; }
+  downloadFile(`guild-full-report-${localISO(new Date())}.csv`, rows.map(r => r.map(csvCell).join(',')).join('\n'));
+  toast('Full report exported');
+}
+
+// --------------------------------------------------------------- router ---
+
+function render() {
+  const hash = location.hash || '#/dashboard';
+  const [, view, id] = hash.split('/');
+  window.scrollTo(0, 0);
+  switch (view) {
+    case 'members': id ? renderMemberDetail(id) : renderMembers(); break;
+    case 'flowers': renderFlowers(); break;
+    case 'weeks': id ? renderWeekDetail(id) : renderWeeks(); break;
+    case 'rivals': renderRivals(); break;
+    case 'settings': renderSettings(); break;
+    default: renderDashboard();
+  }
+}
+
+window.addEventListener('hashchange', render);
+
+load();
+render();
+  </script>
+</body>
+</html>

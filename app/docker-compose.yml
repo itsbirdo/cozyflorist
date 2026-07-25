@@ -1,0 +1,12 @@
+services:
+  guildhq:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8321:8321"
+    environment:
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set in .env}
+      VIEWER_PASSWORD: ${VIEWER_PASSWORD:?set in .env}
+      COOKIE_SECURE: "true"   # set false if you're NOT serving over HTTPS yet
+    volumes:
+      - ./data:/srv/guildhq/data

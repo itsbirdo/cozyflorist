@@ -1,0 +1,6 @@
+{
+  "port": 8321,
+  "adminPassword": "change-me-admin",
+  "viewerPassword": "change-me-viewer",
+  "cookieSecure": false
+}
