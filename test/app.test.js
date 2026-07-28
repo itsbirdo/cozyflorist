@@ -34,6 +34,7 @@ globalThis.__guildHq = {
   memberPotential,
   guildPotential,
   guildRankText,
+  competitorRankTitle,
   bestPotentialFlower,
   memberResultsScoreSummary,
   weeklyPlacementMap,
@@ -127,6 +128,15 @@ test('guild rank display is blank until configured and escapes saved text', () =
 
   state.data.settings.guildRank = '<Rank 12>';
   assert.equal(guildRankText(), ' · Guild rank: <strong>&lt;Rank 12&gt;</strong>');
+});
+
+test('week results use configured guild rank for our row', () => {
+  const { state, competitorRankTitle } = loadApp();
+  state.data = fullData({ settings: { guildRank: '#12' } });
+
+  assert.equal(competitorRankTitle({ ours: true, rankTitle: 'A-Rank Guild' }), '#12');
+  assert.equal(competitorRankTitle({ ours: false, rankTitle: 'A-Rank Guild' }), 'A-Rank Guild');
+  assert.equal(competitorRankTitle({ ours: true }, 'No rank logged'), '#12');
 });
 
 test('weekly competitors default to place with score as tie-breaker', () => {

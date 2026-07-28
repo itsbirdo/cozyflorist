@@ -1034,10 +1034,15 @@ function autoPlacementPatch(c, competitors, ourScore) {
   return patch;
 }
 
+function competitorRankTitle(r, fallback = '—') {
+  const rank = r.ours ? (state.data?.settings?.guildRank || r.rankTitle) : r.rankTitle;
+  return rank || fallback;
+}
+
 function sortWeekCompetitorRows(rows, placements = new Map()) {
   const { key, dir } = ui.sort.weekCompetitors;
   const place = r => placements.get(r.id) ?? r.placement;
-  const val = r => ({ name: r.name, score: r.score, rankTitle: r.rankTitle, placement: place(r) })[key];
+  const val = r => ({ name: r.name, score: r.score, rankTitle: competitorRankTitle(r, ''), placement: place(r) })[key];
   return rows.sort((a, b) =>
     dir * cmp(val(a), val(b)) ||
     (key === 'placement' ? cmp(b.score, a.score) : cmp(place(a), place(b))) ||
@@ -1183,7 +1188,7 @@ function renderWeekDetail(id) {
           ${sortWeekCompetitorRows(allCompetitors, placements).map(r => `
           <tr class="${r.ours ? 'highlight' : (isAdmin() ? 'rowlink' : '')}" ${r.ours ? '' : `data-rival="${r.id}"`}>
             <td>${esc(r.name)}</td><td ${r.ours ? 'data-week-our-score' : ''}>${fmtNum(r.score)}</td>
-            <td>${esc(r.rankTitle || '—')}</td><td>${ordinal(placements.get(r.id) ?? r.placement)}</td>
+            <td>${esc(competitorRankTitle(r))}</td><td>${ordinal(placements.get(r.id) ?? r.placement)}</td>
           </tr>`).join('')}
         </tbody></table></div>
       <div class="mobilecards">
@@ -1192,7 +1197,7 @@ function renderWeekDetail(id) {
             <div class="head">
               <div>
                 <strong>${esc(r.name)}</strong>
-                <div class="muted small">${esc(r.rankTitle || 'No rank logged')}</div>
+                <div class="muted small">${esc(competitorRankTitle(r, 'No rank logged'))}</div>
               </div>
               <div class="metric">
                 <strong>${ordinal(placements.get(r.id) ?? r.placement)}</strong>
