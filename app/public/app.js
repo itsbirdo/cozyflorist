@@ -7,16 +7,18 @@ const state = { role: null, data: null };
 
 const ui = {
   sort: {
+    summary: { key: 'name', dir: 1 },
     members: { key: 'name', dir: 1 },
     memberFlowers: { key: 'rarity', dir: -1 },
-    flowers: { key: 'name', dir: 1 },
-    rivals: { key: 'date', dir: -1 },
-    weekCompetitors: { key: 'score', dir: -1 },
+    flowers: { key: 'points', dir: -1 },
+    rivals: { key: 'score', dir: -1 },
+    weekCompetitors: { key: 'placement', dir: 1 },
   },
-  search: { members: '', flowers: '', rivals: '' },
-  filters: { membersRole: '', showInactive: false, flowersRarity: '' },
+  search: { summary: '', members: '', flowers: '', rivals: '' },
+  filters: { summaryFlower: '', membersRole: '', showInactive: false, flowersRarity: '' },
   weekDraft: { compId: null, results: {} }, // admin edit draft for a week's member results
   rivalsWeekId: null, // which competition week the Rivals estimate cards show
+  rivalsShowAll: false,
 };
 
 const $ = sel => document.querySelector(sel);
@@ -66,6 +68,7 @@ function esc(s) {
 }
 
 const fmtNum = n => (n === null || n === undefined || n === '' ? '—' : Number(n).toLocaleString());
+const optNum = v => (v === null || v === undefined || v === '' ? null : (Number.isFinite(Number(v)) ? Number(v) : null));
 
 function ordinal(n) {
   if (n === null || n === undefined || n === '') return '—';
@@ -109,6 +112,13 @@ function memberById(id) { return state.data.members.find(m => m.id === id); }
 function flowerOwners(flowerId) {
   return state.data.members.filter(m => (m.flowerIds || []).includes(flowerId));
 }
+function firstFlowerOwnerName(flowerId) {
+  const owners = flowerOwners(flowerId).map(m => m.name).sort((a, b) => cmp(a, b));
+  return owners[0] || null;
+}
+function ownedFlowerIds() {
+  return new Set(state.data.members.flatMap(m => m.flowerIds || []));
+}
 
 // colour-coded labels ---------------------------------------------------------
 
@@ -149,24 +159,33 @@ function effScorePerQuest() {
   return (p.scorePerQuest || 0) + (p.includeBonus ? (p.avgBonus || 0) : 0);
 }
 
+function bestPotentialFlower(m) {
+  const s = state.data.settings;
+  return (m.flowerIds || [])
+    .map(flowerById)
+    .filter(Boolean)
+    .map(f => ({
+      flower: f,
+      bonus: flowerBonus(m, f.id),
+      scorePerQuest: (f.points || 0) * s.maxMultiplier + flowerBonus(m, f.id),
+    }))
+    .sort((a, b) => cmp(b.flower.points || 0, a.flower.points || 0) || cmp(b.bonus, a.bonus) || cmp(a.flower.name, b.flower.name))[0] || null;
+}
+
 function memberPotential(m) {
   if (m.potentialOverride !== null && m.potentialOverride !== undefined) return m.potentialOverride;
-  const s = state.data.settings;
-  return Math.round((m.questCount ?? s.questsMax) * effScorePerQuest());
+  const best = bestPotentialFlower(m);
+  if (!best) return 0;
+  return Math.round(state.data.settings.questsMax * best.scorePerQuest);
 }
 
 function guildPotential() {
-  const s = state.data.settings, p = s.potential;
-  if (p.membersOverride !== null && p.membersOverride !== undefined) {
-    return { value: Math.round(p.membersOverride * s.questsMax * effScorePerQuest()), basis: `${p.membersOverride} members (manual) × ${s.questsMax} quests × ${effScorePerQuest()} pts` };
-  }
   const active = state.data.members.filter(m => m.active);
-  if (!active.length) {
-    return { value: Math.round(s.memberCapacity * s.questsMax * effScorePerQuest()), basis: `${s.memberCapacity} capacity × ${s.questsMax} quests × ${effScorePerQuest()} pts` };
-  }
   return {
     value: active.reduce((sum, m) => sum + memberPotential(m), 0),
-    basis: `sum over ${active.length} active members (each: own quest count × ${effScorePerQuest()} pts, or their manual override)`,
+    basis: active.length
+      ? `sum over ${active.length} active members (each: ${state.data.settings.questsMax} quests × their highest owned flower after multiplier and bonus)`
+      : 'no active members with flower data yet',
   };
 }
 
@@ -202,7 +221,12 @@ function bindSortHeaders(view, rerender) {
     th.addEventListener('click', () => {
       const key = th.dataset.key;
       const s = ui.sort[view];
-      if (s.key === key) s.dir = -s.dir; else { s.key = key; s.dir = 1; }
+      if (s.key === key) {
+        s.dir = view === 'weekCompetitors' && key === 'placement' ? 1 : -s.dir;
+      } else {
+        s.key = key;
+        s.dir = (key === 'score' || key === 'potential' || key === 'flowers' || key === 'topFlower' || key === 'date') ? -1 : 1;
+      }
       rerender();
     });
   });
@@ -233,6 +257,7 @@ function csvCell(v) {
 
 const TABS = [
   { hash: '#/dashboard', label: 'Home', ico: '🏠' },
+  { hash: '#/summary', label: 'Summary', ico: '📋' },
   { hash: '#/members', label: 'Members', ico: '👥' },
   { hash: '#/flowers', label: 'Flowers', ico: '🌸' },
   { hash: '#/weeks', label: 'Weeks', ico: '🏆' },
@@ -294,16 +319,12 @@ function renderLogin() {
 function renderDashboard() {
   const d = state.data, s = d.settings;
   const active = d.members.filter(m => m.active);
-  const totalOwned = d.members.reduce((n, m) => n + (m.flowerIds || []).length, 0);
+  const totalOwned = d.flowers.length;
   const pot = guildPotential();
 
   const byRarity = new Map();
-  for (const m of d.members) {
-    for (const fid of m.flowerIds || []) {
-      const f = flowerById(fid);
-      if (!f) continue;
-      byRarity.set(f.rarity || 'none', (byRarity.get(f.rarity || 'none') || 0) + 1);
-    }
+  for (const f of d.flowers) {
+    byRarity.set(f.rarity || 'none', (byRarity.get(f.rarity || 'none') || 0) + 1);
   }
   const rarityChips = [...RARITIES.map(r => ({ ...r, count: byRarity.get(r.key) || 0 })), { key: 'none', label: 'No rarity', color: 'none', count: byRarity.get('none') || 0 }]
     .filter(r => r.count)
@@ -338,7 +359,7 @@ function renderDashboard() {
       <div class="card stat">
         <div class="num">${totalOwned}</div>
         <div class="lbl">Flowers owned</div>
-        <div class="sub">${d.flowers.length} types in catalogue</div>
+        <div class="sub">catalogue total</div>
       </div>
       <div class="card stat">
         <div class="num">${fmtNum(pot.value)}</div>
@@ -361,9 +382,9 @@ function renderDashboard() {
 
     <div class="card">
       <h2 style="margin-top:0">Max potential — how it's calculated</h2>
-      <p class="muted">Estimate: ${esc(pot.basis)}.
-      Flower→quest scoring in game isn't fully known, so tune the inputs under
-      <a href="#/settings">Settings → Potential estimate</a> as the real relationship becomes clear.</p>
+      <p class="muted">Estimate: ${esc(pot.basis)}. Each member uses their own highest-point
+      flower, applies the max multiplier, adds that member's bonus on that flower, then multiplies
+      by max quests.</p>
     </div>
   `, '#/dashboard');
   bindChrome();
@@ -395,20 +416,18 @@ function renderMembersTable() {
       <thead><tr>
         <th data-key="name" class="${sortArrow('members', 'name')}">Name</th>
         <th data-key="role" class="${sortArrow('members', 'role')}">Role</th>
-        <th data-key="timezone" class="${sortArrow('members', 'timezone')}">Timezone</th>
-        <th data-key="quests" class="${sortArrow('members', 'quests')}">Quests</th>
-        <th data-key="flowers" class="${sortArrow('members', 'flowers')}">Flowers</th>
         <th data-key="potential" class="${sortArrow('members', 'potential')}">Potential</th>
+        <th data-key="flowers" class="${sortArrow('members', 'flowers')}">Flowers</th>
+        <th data-key="timezone" class="${sortArrow('members', 'timezone')}">Timezone</th>
       </tr></thead>
       <tbody>
         ${rows.map(m => `
           <tr class="rowlink" data-go="#/members/${m.id}">
             <td>${esc(m.name)}${m.active ? '' : ' <span class="muted small">(inactive)</span>'}</td>
             <td>${roleTag(m.role)}</td>
-            <td>${esc(m.timezone || '—')}</td>
-            <td>${m.questCount}</td>
-            <td>${(m.flowerIds || []).length}</td>
             <td>${fmtNum(memberPotential(m))}</td>
+            <td>${(m.flowerIds || []).length}</td>
+            <td>${esc(m.timezone || '—')}</td>
           </tr>`).join('')}
       </tbody>
     </table>
@@ -440,6 +459,191 @@ function renderMembers() {
   $('#mrole').addEventListener('change', e => { ui.filters.membersRole = e.target.value; renderMembersTable(); });
   $('#minactive').addEventListener('change', e => { ui.filters.showInactive = e.target.checked; renderMembersTable(); });
   $('#addmember')?.addEventListener('click', () => memberFormDialog(null));
+}
+
+// ---------------------------------------------------------------- summary --
+
+function topMemberFlowers(m, limit = 5) {
+  return (m.flowerIds || [])
+    .map(flowerById)
+    .filter(Boolean)
+    .map(f => ({ flower: f, bonus: flowerBonus(m, f.id), total: (f.points || 0) + flowerBonus(m, f.id) }))
+    .sort((a, b) => cmp(b.total, a.total) || cmp(b.flower.points || 0, a.flower.points || 0) || cmp(a.flower.name, b.flower.name))
+    .slice(0, limit);
+}
+
+function floristRankForPoints(points) {
+  let best = null;
+  for (const rank of FLORIST_RANKS) {
+    if (points >= (state.data.settings.floristRanks[rank.key] || 0)) best = rank;
+  }
+  return best;
+}
+function floristRankTag(points) {
+  const rank = floristRankForPoints(points);
+  return rank
+    ? `<span class="tag tag-${rank.color}">${rank.label}</span>`
+    : '<span class="tag tag-none">Below Standard Florist</span>';
+}
+function summaryRows() {
+  const q = ui.search.summary.toLowerCase().trim();
+  const flowerFilter = ui.filters.summaryFlower;
+  const rows = state.data.members.filter(m => {
+    const top = topMemberFlowers(m);
+    const allFlowers = (m.flowerIds || []).map(flowerById).filter(Boolean);
+    const haystack = [
+      m.name,
+      m.role,
+      m.timezone,
+      m.notes,
+      ...allFlowers.map(f => f.name),
+      floristRankForPoints(memberPotential(m))?.label || '',
+    ].join(' ').toLowerCase();
+    return (!flowerFilter || (m.flowerIds || []).includes(flowerFilter)) &&
+      (!q || haystack.includes(q)) &&
+      (top.length || !flowerFilter);
+  });
+  const { key, dir } = ui.sort.summary;
+  const val = m => ({
+    name: m.name,
+    role: ROLES.indexOf(m.role),
+    potential: memberPotential(m),
+    flowers: (m.flowerIds || []).length,
+    timezone: m.timezone || null,
+    topFlower: topMemberFlowers(m)[0]?.total ?? null,
+  })[key];
+  return rows.sort((a, b) => dir * cmp(val(a), val(b)) || cmp(a.name, b.name));
+}
+
+function renderSummaryTable() {
+  const members = summaryRows();
+  $('#summary-table').innerHTML = members.length ? `
+    <div class="tablewrap desktop-only">
+    <table data-sortview="summary">
+      <thead><tr>
+        <th data-key="name" class="${sortArrow('summary', 'name')}">Member</th>
+        <th data-key="topFlower" class="${sortArrow('summary', 'topFlower')}">Top 5 highest point flowers</th>
+        <th data-key="potential" class="${sortArrow('summary', 'potential')}">Max potential</th>
+        <th data-key="flowers" class="${sortArrow('summary', 'flowers')}">Flowers</th>
+        <th data-key="timezone" class="${sortArrow('summary', 'timezone')}">Timezone</th>
+      </tr></thead>
+      <tbody>${members.map(m => {
+        const top = topMemberFlowers(m);
+        const potential = memberPotential(m);
+        return `
+          <tr class="rowlink" data-go="#/members/${m.id}">
+            <td><strong>${esc(m.name)}</strong>${m.active ? '' : ' <span class="muted small">(inactive)</span>'}<br>${roleTag(m.role)}<br>${floristRankTag(potential)}</td>
+            <td class="wrap">
+              ${top.length ? `<div class="flowerlist">${top.map(item => `
+                <span class="flowerpill">
+                  ${esc(item.flower.name)}
+                  ${rarityTag(item.flower.rarity)}
+                  <strong>${fmtNum(item.total)}</strong>
+                  ${item.bonus ? `<span class="muted small">+${fmtNum(item.bonus)}</span>` : ''}
+                </span>`).join('')}</div>` : '<span class="muted">No flowers recorded.</span>'}
+            </td>
+            <td><strong>${fmtNum(potential)}</strong>${m.potentialOverride != null ? ' <span class="badge">manual</span>' : ''}</td>
+            <td>${(m.flowerIds || []).length}</td>
+            <td>${esc(m.timezone || '—')}</td>
+          </tr>`;
+      }).join('')}</tbody>
+    </table>
+    </div>
+    <div class="mobilecards">
+      ${members.map(m => {
+        const top = topMemberFlowers(m);
+        const potential = memberPotential(m);
+        return `
+          <div class="mobilecard rowlink" data-go="#/members/${m.id}">
+            <div class="head">
+              <div>
+                <strong>${esc(m.name)}</strong>${m.active ? '' : ' <span class="muted small">(inactive)</span>'}
+                <div class="meta">${roleTag(m.role)} ${floristRankTag(potential)}</div>
+              </div>
+              <div class="metric">
+                <strong>${fmtNum(potential)}</strong>
+                <div class="muted small">max potential</div>
+              </div>
+            </div>
+            <div class="section">
+              <label>Top 5 flowers</label>
+              ${top.length ? `<div class="flowerlist">${top.map(item => `
+                <span class="flowerpill">
+                  ${esc(item.flower.name)}
+                  ${rarityTag(item.flower.rarity)}
+                  <strong>${fmtNum(item.total)}</strong>
+                  ${item.bonus ? `<span class="muted small">+${fmtNum(item.bonus)}</span>` : ''}
+                </span>`).join('')}</div>` : '<p class="muted">No flowers recorded.</p>'}
+            </div>
+            <div class="meta">
+              <span class="chip">${(m.flowerIds || []).length} flowers</span>
+              <span class="chip">${esc(m.timezone || 'No timezone')}</span>
+            </div>
+          </div>`;
+      }).join('')}
+    </div>`
+    : `<div class="empty"><div class="big">📋</div>No members match.</div>`;
+  bindSortHeaders('summary', renderSummaryTable);
+  document.querySelectorAll('#summary-table [data-go]').forEach(tr => tr.addEventListener('click', () => { location.hash = tr.dataset.go; }));
+}
+
+function renderSummary() {
+  const members = [...state.data.members].sort((a, b) => cmp(a.name, b.name));
+  const activeCount = members.filter(m => m.active).length;
+  const withFlowers = members.filter(m => (m.flowerIds || []).length).length;
+  const pot = guildPotential();
+
+  app().innerHTML = chrome(`
+    <h1>Member flower summary</h1>
+    <div class="cardgrid">
+      <div class="card stat">
+        <div class="num">${members.length}</div>
+        <div class="lbl">Members</div>
+        <div class="sub">${activeCount} active</div>
+      </div>
+      <div class="card stat">
+        <div class="num">${withFlowers}</div>
+        <div class="lbl">With flowers</div>
+        <div class="sub">${members.length - withFlowers} without flowers</div>
+      </div>
+      <div class="card stat">
+        <div class="num">${fmtNum(pot.value)}</div>
+        <div class="lbl">Guild max potential</div>
+        <div class="sub">highest owned flowers</div>
+      </div>
+      <div class="card stat">
+        <div class="num">${state.data.flowers.length}</div>
+        <div class="lbl">Catalogue</div>
+        <div class="sub">flower types</div>
+      </div>
+    </div>
+    <div class="toolbar">
+      <input type="search" id="summarysearch" placeholder="Search member, flower, timezone…" value="${esc(ui.search.summary)}">
+      <select id="summaryflower">
+        <option value="">All flowers</option>
+        ${[...state.data.flowers].sort((a, b) => cmp(a.name, b.name)).map(f => `<option value="${f.id}" ${ui.filters.summaryFlower === f.id ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}
+      </select>
+      <label class="mobile-only mobile-sort">Sort
+        <select id="summarysort">
+          <option value="name:1" ${ui.sort.summary.key === 'name' && ui.sort.summary.dir === 1 ? 'selected' : ''}>Name A-Z</option>
+          <option value="potential:-1" ${ui.sort.summary.key === 'potential' && ui.sort.summary.dir === -1 ? 'selected' : ''}>Max potential high-low</option>
+          <option value="potential:1" ${ui.sort.summary.key === 'potential' && ui.sort.summary.dir === 1 ? 'selected' : ''}>Max potential low-high</option>
+          <option value="flowers:-1" ${ui.sort.summary.key === 'flowers' && ui.sort.summary.dir === -1 ? 'selected' : ''}>Flowers high-low</option>
+          <option value="timezone:1" ${ui.sort.summary.key === 'timezone' && ui.sort.summary.dir === 1 ? 'selected' : ''}>Timezone A-Z</option>
+        </select>
+      </label>
+    </div>
+    <div id="summary-table"></div>
+  `, '#/summary');
+  bindChrome();
+  renderSummaryTable();
+  $('#summarysearch').addEventListener('input', e => { ui.search.summary = e.target.value; renderSummaryTable(); });
+  $('#summaryflower').addEventListener('change', e => { ui.filters.summaryFlower = e.target.value; renderSummaryTable(); });
+  $('#summarysort')?.addEventListener('change', e => {
+    const [key, dir] = e.target.value.split(':');
+    ui.sort.summary = { key, dir: Number(dir) };
+    renderSummaryTable();
+  });
 }
 
 function memberFormDialog(member) {
@@ -643,7 +847,7 @@ function renderFlowersTable() {
     name: f.name, rarity: rarityRank(f.rarity),
     points: f.points, owners: flowerOwners(f.id).length,
   })[key];
-  rows.sort((a, b) => dir * cmp(val(a), val(b)));
+  rows.sort((a, b) => dir * cmp(val(a), val(b)) || cmp(firstFlowerOwnerName(a.id), firstFlowerOwnerName(b.id)) || cmp(a.name, b.name));
 
   $('#flowers-table').innerHTML = rows.length ? `
     <div class="tablewrap">
@@ -799,6 +1003,49 @@ function renderWeeks() {
   });
 }
 
+function weeklyPlacementMap(c, ourScore) {
+  const entries = [
+    { id: 'ours', score: ourScore },
+    ...(c.competitors || []).map(r => ({ id: r.id, score: r.score })),
+  ]
+    .filter(r => r.score !== null && r.score !== undefined)
+    .sort((a, b) => cmp(b.score, a.score));
+  const placements = new Map();
+  let lastScore = null, place = 0;
+  entries.forEach((entry, index) => {
+    if (lastScore === null || Number(entry.score) !== Number(lastScore)) place = index + 1;
+    placements.set(entry.id, place);
+    lastScore = entry.score;
+  });
+  return placements;
+}
+function autoPlacementPatch(c, competitors, ourScore) {
+  const placements = weeklyPlacementMap({ ...c, competitors }, ourScore);
+  const patch = {
+    competitors: competitors.map(r => ({ ...r, placement: placements.get(r.id) ?? r.placement })),
+  };
+  const ourPlacement = placements.get('ours');
+  if (ourPlacement !== undefined) patch.ourPlacement = ourPlacement;
+  return patch;
+}
+
+function sortWeekCompetitorRows(rows, placements = new Map()) {
+  const { key, dir } = ui.sort.weekCompetitors;
+  const place = r => placements.get(r.id) ?? r.placement;
+  const val = r => ({ name: r.name, score: r.score, rankTitle: r.rankTitle, placement: place(r) })[key];
+  return rows.sort((a, b) =>
+    dir * cmp(val(a), val(b)) ||
+    (key === 'placement' ? cmp(b.score, a.score) : cmp(place(a), place(b))) ||
+    cmp(a.name, b.name));
+}
+function scoreBarColor(i) {
+  return ['#c95f7d', '#5f8a5e', '#5a78c9', '#c99a3a', '#8d63b8', '#d7784f', '#4b9d9a', '#b35f86', '#6f7f4f', '#7b78c9'][i % 10];
+}
+function scoreBarWidth(score, maxScore) {
+  if (!Number.isFinite(score) || score <= 0 || !Number.isFinite(maxScore) || maxScore <= 0) return 0;
+  return Math.max(3, Math.round(100 * score / maxScore));
+}
+
 function ensureWeekDraft(c) {
   if (ui.weekDraft.compId === c.id) return;
   const results = {};
@@ -817,23 +1064,56 @@ function draftFor(memberId) {
   }
   return ui.weekDraft.results[memberId];
 }
+function hasMemberResultData(r) {
+  return r && (r.finalScore != null || r.questsCompleted != null || (r.questDetail || []).length);
+}
+function mergedMemberResultsForSave(c) {
+  const merged = new Map((c.memberResults || []).map(r => [r.memberId, {
+    memberId: r.memberId,
+    finalScore: r.finalScore,
+    questsCompleted: r.questsCompleted,
+    questDetail: (r.questDetail || []).map(q => ({ ...q })),
+  }]));
+  if (ui.weekDraft.compId === c.id) {
+    for (const [memberId, draft] of Object.entries(ui.weekDraft.results)) {
+      if (hasMemberResultData(draft)) {
+        merged.set(memberId, { memberId, ...draft, questDetail: (draft.questDetail || []).map(q => ({ ...q })) });
+      } else {
+        merged.delete(memberId);
+      }
+    }
+  }
+  return [...merged.values()];
+}
+function memberResultsScoreSummary(memberResults) {
+  const scores = memberResults.map(r => r.finalScore).filter(v => v !== null && v !== undefined);
+  return { hasScores: scores.length > 0, total: scores.reduce((sum, score) => sum + Number(score || 0), 0) };
+}
+function currentWeekOurScore(c) {
+  const score = memberResultsScoreSummary(mergedMemberResultsForSave(c));
+  return score.hasScores ? score.total : c.ourScore;
+}
+function refreshWeekScoreTotal(c) {
+  const score = currentWeekOurScore(c);
+  document.querySelectorAll('[data-week-our-score]').forEach(el => { el.textContent = fmtNum(score); });
+}
 
 function renderWeekDetail(id) {
   const c = state.data.competitions.find(x => x.id === id);
   if (!c) { location.hash = '#/weeks'; return; }
   ensureWeekDraft(c);
+  const displayOurScore = currentWeekOurScore(c);
+  const placements = weeklyPlacementMap(c, displayOurScore);
 
-  // comparison: us + rivals, sorted by score
-  const entries = [
-    { name: state.data.settings.guildName, score: c.ourScore, ours: true },
-    ...(c.competitors || []).map(r => ({ name: r.name, score: r.score, ours: false })),
-  ].filter(e => e.score !== null && e.score !== undefined)
-    .sort((a, b) => b.score - a.score);
+  const rivals = sortWeekCompetitorRows([...(c.competitors || [])], placements);
+  const allCompetitors = [
+    { id: 'ours', name: state.data.settings.guildName, score: displayOurScore, rankTitle: c.ourRankTitle, placement: c.ourPlacement, ours: true },
+    ...(c.competitors || []).map(r => ({ ...r, ours: false })),
+  ];
+  const entries = allCompetitors
+    .filter(e => e.score !== null && e.score !== undefined)
+    .sort((a, b) => cmp(placements.get(a.id), placements.get(b.id)) || cmp(b.score, a.score) || cmp(a.name, b.name));
   const maxScore = Math.max(1, ...entries.map(e => e.score));
-
-  // competitors table
-  const { key, dir } = ui.sort.weekCompetitors;
-  const rivals = [...(c.competitors || [])].sort((a, b) => dir * cmp(a[key], b[key]));
 
   // member results: active members plus anyone with a saved/draft result
   const withData = new Set([
@@ -851,8 +1131,8 @@ function renderWeekDetail(id) {
 
     <div class="card">
       <h2 style="margin-top:0">Our result</h2>
-      <p>Score <strong>${fmtNum(c.ourScore)}</strong>
-        · Placement <strong>${ordinal(c.ourPlacement)}</strong>
+      <p>Score <strong data-week-our-score>${fmtNum(displayOurScore)}</strong>
+        · Placement <strong>${ordinal(placements.get('ours') ?? c.ourPlacement)}</strong>
         ${c.ourRankTitle ? `· ${esc(c.ourRankTitle)}` : ''}</p>
       ${c.notes ? `<p class="muted" style="white-space:pre-wrap">${esc(c.notes)}</p>` : ''}
       ${isAdmin() ? `
@@ -860,40 +1140,73 @@ function renderWeekDetail(id) {
         <button class="btn danger small" id="delweek">Delete week</button>` : ''}
     </div>
 
-    ${entries.length > 1 ? `
     <div class="card">
       <h2 style="margin-top:0">Score comparison</h2>
-      ${entries.map(e => `
-        <div class="bar ${e.ours ? 'ours' : ''}">
-          <span class="name">${esc(e.name)}</span>
-          <span class="track"><span class="fill" style="width:${Math.round(100 * e.score / maxScore)}%"></span></span>
-          <span class="val">${fmtNum(e.score)}</span>
-        </div>`).join('')}
-    </div>` : ''}
+      ${entries.length ? `
+        <div class="scoregraph">
+        ${entries.map((e, i) => `
+          <div class="bar ${e.ours ? 'ours' : ''}">
+            <span class="place">${ordinal(placements.get(e.id))}</span>
+            <span class="name">${esc(e.name)}</span>
+            <span class="track"><span class="fill" style="width:${scoreBarWidth(e.score, maxScore)}%;background:${scoreBarColor(i)}"></span></span>
+            <span class="val">${fmtNum(e.score)}</span>
+          </div>`).join('')}
+        </div>`
+        : '<p class="muted">Enter scores in Results or Member results to draw the comparison graph.</p>'}
+    </div>
 
     <div class="card">
-      <h2 style="margin-top:0">Rival guilds (${rivals.length})</h2>
-      ${rivals.length ? `
-        <div class="tablewrap"><table data-sortview="weekCompetitors">
-          <thead><tr>
-            <th data-key="name" class="${sortArrow('weekCompetitors', 'name')}">Guild</th>
-            <th data-key="score" class="${sortArrow('weekCompetitors', 'score')}">Score</th>
-            <th data-key="rankTitle" class="${sortArrow('weekCompetitors', 'rankTitle')}">Rank</th>
-            <th data-key="placement" class="${sortArrow('weekCompetitors', 'placement')}">Place</th>
-          </tr></thead>
-          <tbody>${rivals.map(r => `
-            <tr class="${isAdmin() ? 'rowlink' : ''}" data-rival="${r.id}">
-              <td>${esc(r.name)}</td><td>${fmtNum(r.score)}</td>
-              <td>${esc(r.rankTitle || '—')}</td><td>${ordinal(r.placement)}</td>
-            </tr>`).join('')}
-          </tbody></table></div>` : '<p class="muted">No rivals logged for this week yet.</p>'}
+      <h2 style="margin-top:0">Results</h2>
+      <label class="mobile-only mobile-sort">Sort
+        <select id="weekresultsort">
+          <option value="placement:1" ${ui.sort.weekCompetitors.key === 'placement' && ui.sort.weekCompetitors.dir === 1 ? 'selected' : ''}>Place 1st-last</option>
+          <option value="score:-1" ${ui.sort.weekCompetitors.key === 'score' && ui.sort.weekCompetitors.dir === -1 ? 'selected' : ''}>Score high-low</option>
+          <option value="score:1" ${ui.sort.weekCompetitors.key === 'score' && ui.sort.weekCompetitors.dir === 1 ? 'selected' : ''}>Score low-high</option>
+          <option value="name:1" ${ui.sort.weekCompetitors.key === 'name' && ui.sort.weekCompetitors.dir === 1 ? 'selected' : ''}>Guild A-Z</option>
+          <option value="rankTitle:1" ${ui.sort.weekCompetitors.key === 'rankTitle' && ui.sort.weekCompetitors.dir === 1 ? 'selected' : ''}>Rank A-Z</option>
+        </select>
+      </label>
+      <div class="tablewrap desktop-only"><table data-sortview="weekCompetitors">
+        <thead><tr>
+          <th data-key="name" class="${sortArrow('weekCompetitors', 'name')}">Guild</th>
+          <th data-key="score" class="${sortArrow('weekCompetitors', 'score')}">Score</th>
+          <th data-key="rankTitle" class="${sortArrow('weekCompetitors', 'rankTitle')}">Rank</th>
+          <th data-key="placement" class="${sortArrow('weekCompetitors', 'placement')}">Place</th>
+        </tr></thead>
+        <tbody>
+          ${sortWeekCompetitorRows(allCompetitors, placements).map(r => `
+          <tr class="${r.ours ? 'highlight' : (isAdmin() ? 'rowlink' : '')}" ${r.ours ? '' : `data-rival="${r.id}"`}>
+            <td>${esc(r.name)}</td><td ${r.ours ? 'data-week-our-score' : ''}>${fmtNum(r.score)}</td>
+            <td>${esc(r.rankTitle || '—')}</td><td>${ordinal(placements.get(r.id) ?? r.placement)}</td>
+          </tr>`).join('')}
+        </tbody></table></div>
+      <div class="mobilecards">
+        ${sortWeekCompetitorRows(allCompetitors, placements).map(r => `
+          <div class="mobilecard ${r.ours ? 'highlight' : (isAdmin() ? 'rowlink' : '')}" ${r.ours ? '' : `data-rival="${r.id}"`}>
+            <div class="head">
+              <div>
+                <strong>${esc(r.name)}</strong>
+                <div class="muted small">${esc(r.rankTitle || 'No rank logged')}</div>
+              </div>
+              <div class="metric">
+                <strong>${ordinal(placements.get(r.id) ?? r.placement)}</strong>
+                <div class="muted small">place</div>
+              </div>
+            </div>
+            <div class="section">
+              <span class="chip rose">Score ${fmtNum(r.score)}</span>
+              ${r.ours ? '<span class="chip">Our guild</span>' : ''}
+            </div>
+          </div>`).join('')}
+      </div>
+      ${rivals.length ? '' : '<p class="muted small">No rival guilds logged for this week yet.</p>'}
       ${isAdmin() ? '<button class="btn secondary small" id="addrival">+ Add rival</button>' : ''}
     </div>
 
     <div class="card">
       <h2 style="margin-top:0">Member results</h2>
       ${resultMembers.length ? `
-        <div class="tablewrap"><table>
+        <div class="tablewrap desktop-only"><table>
           <thead><tr><th>Member</th><th>Quests</th><th>Score</th><th>Detail</th></tr></thead>
           <tbody>${resultMembers.map(m => {
             const d = isAdmin() ? draftFor(m.id) : (saved.get(m.id) || {});
@@ -912,6 +1225,41 @@ function renderWeekDetail(id) {
             </tr>`;
           }).join('')}
           </tbody></table></div>
+        <div class="mobilecards">
+          ${resultMembers.map(m => {
+            const d = isAdmin() ? draftFor(m.id) : (saved.get(m.id) || {});
+            const detailCount = (d.questDetail || []).length;
+            return `
+              <div class="mobilecard">
+                <div class="head">
+                  <div>
+                    <strong>${esc(m.name)}</strong>${m.active ? '' : ' <span class="muted small">(inactive)</span>'}
+                    <div class="muted small">${esc(m.role || 'Member')}</div>
+                  </div>
+                  <div class="metric">
+                    <strong>${fmtNum(d.finalScore)}</strong>
+                    <div class="muted small">score</div>
+                  </div>
+                </div>
+                ${isAdmin() ? `
+                  <div class="mobilefield">
+                    <label>Quests</label>
+                    <input type="number" inputmode="numeric" data-quests-mobile="${m.id}" value="${d.questsCompleted ?? ''}">
+                  </div>
+                  <div class="mobilefield">
+                    <label>Score</label>
+                    <input type="number" inputmode="numeric" data-score-mobile="${m.id}" value="${d.finalScore ?? ''}">
+                  </div>
+                  <div class="actions">
+                    <button class="btn secondary small" data-detail="${m.id}">${detailCount ? detailCount + ' quests' : '+ quests'}</button>
+                  </div>`
+                  : `<div class="meta">
+                    <span class="chip">${fmtNum(d.questsCompleted)} quests</span>
+                    ${detailCount ? `<button class="btn secondary small" data-viewdetail="${m.id}">${detailCount} quests</button>` : ''}
+                  </div>`}
+              </div>`;
+          }).join('')}
+        </div>
         ${isAdmin() ? `
           <button class="btn" id="saveresults">Save results</button>
           <p class="muted small">Rows left fully blank aren't stored. Quest detail is optional.</p>` : ''}
@@ -921,6 +1269,11 @@ function renderWeekDetail(id) {
   `, '#/weeks');
   bindChrome();
   bindSortHeaders('weekCompetitors', () => renderWeekDetail(id));
+  $('#weekresultsort')?.addEventListener('change', e => {
+    const [key, dir] = e.target.value.split(':');
+    ui.sort.weekCompetitors = { key, dir: Number(dir) };
+    renderWeekDetail(id);
+  });
 
   $('#editweek')?.addEventListener('click', () => weekFormDialog(c));
   $('#delweek')?.addEventListener('click', async () => {
@@ -942,10 +1295,22 @@ function renderWeekDetail(id) {
   document.querySelectorAll('[data-quests]').forEach(inp =>
     inp.addEventListener('input', () => {
       draftFor(inp.dataset.quests).questsCompleted = inp.value === '' ? null : Number(inp.value);
+      refreshWeekScoreTotal(c);
     }));
   document.querySelectorAll('[data-score]').forEach(inp =>
     inp.addEventListener('input', () => {
       draftFor(inp.dataset.score).finalScore = inp.value === '' ? null : Number(inp.value);
+      refreshWeekScoreTotal(c);
+    }));
+  document.querySelectorAll('[data-quests-mobile]').forEach(inp =>
+    inp.addEventListener('input', () => {
+      draftFor(inp.dataset.questsMobile).questsCompleted = inp.value === '' ? null : Number(inp.value);
+      refreshWeekScoreTotal(c);
+    }));
+  document.querySelectorAll('[data-score-mobile]').forEach(inp =>
+    inp.addEventListener('input', () => {
+      draftFor(inp.dataset.scoreMobile).finalScore = inp.value === '' ? null : Number(inp.value);
+      refreshWeekScoreTotal(c);
     }));
   document.querySelectorAll('[data-detail]').forEach(btn =>
     btn.addEventListener('click', () => questDetailDialog(c, btn.dataset.detail, true)));
@@ -953,11 +1318,13 @@ function renderWeekDetail(id) {
     btn.addEventListener('click', () => questDetailDialog(c, btn.dataset.viewdetail, false)));
 
   $('#saveresults')?.addEventListener('click', async () => {
-    const memberResults = Object.entries(ui.weekDraft.results)
-      .filter(([, d]) => d.finalScore != null || d.questsCompleted != null || (d.questDetail || []).length)
-      .map(([memberId, d]) => ({ memberId, ...d }));
+    const memberResults = mergedMemberResultsForSave(c);
+    const score = memberResultsScoreSummary(memberResults);
+    const body = score.hasScores
+      ? { memberResults, ourScore: score.total, ...autoPlacementPatch(c, c.competitors || [], score.total) }
+      : { memberResults };
     const ok = await saveAndReload(
-      () => api(`/api/competitions/${c.id}`, 'PUT', { memberResults }),
+      () => api(`/api/competitions/${c.id}`, 'PUT', body),
       'Results saved');
     if (ok) ui.weekDraft = { compId: null, results: {} };
   });
@@ -999,17 +1366,20 @@ function weekFormDialog(c) {
   dlg.querySelector('#wform').addEventListener('submit', async e => {
     e.preventDefault();
     const f = new FormData(e.target);
+    const ourScore = f.get('ourScore') || null;
+    const auto = autoPlacementPatch(c, c.competitors || [], optNum(ourScore));
     const ok = await saveAndReload(() => api(`/api/competitions/${c.id}`, 'PUT', {
       weekStart: f.get('weekStart'), weekEnd: f.get('weekEnd'),
-      ourScore: f.get('ourScore') || null, ourRankTitle: f.get('ourRankTitle'),
-      ourPlacement: f.get('ourPlacement') || null, notes: f.get('notes'),
+      ourScore, ourRankTitle: f.get('ourRankTitle'),
+      ourPlacement: auto.ourPlacement ?? (f.get('ourPlacement') || null), notes: f.get('notes'),
+      competitors: auto.competitors,
     }), 'Week saved');
     if (ok) dlg.close();
   });
 }
 
-function rivalFormDialog(c, rival) {
-  const r = rival || { name: '', score: null, rankTitle: '', placement: null };
+function rivalFormDialog(c, rival, afterSave) {
+  const r = rival || { name: '', score: null, rankTitle: '', placement: null, notes: '' };
   const dlg = openDialog(`
     <h2>${rival ? 'Edit rival' : 'Add rival guild'}</h2>
     <form id="rform">
@@ -1024,6 +1394,8 @@ function rivalFormDialog(c, rival) {
         <div><label>Rank title</label><input name="rankTitle" value="${esc(r.rankTitle)}"></div>
         <div><label>Placement</label><input type="number" name="placement" min="1" max="10" value="${r.placement ?? ''}"></div>
       </div>
+      <label>Notes</label>
+      <textarea name="notes" placeholder="Anything useful to remember about this guild">${esc(r.notes)}</textarea>
       <button class="btn">${rival ? 'Save' : 'Add'}</button>
       ${rival ? '<button class="btn danger" type="button" id="delrival">Delete</button>' : ''}
       <button class="btn secondary" type="button" data-close>Cancel</button>
@@ -1035,20 +1407,28 @@ function rivalFormDialog(c, rival) {
     const entry = {
       id: rival?.id, name: f.get('name'), score: f.get('score') || null,
       rankTitle: f.get('rankTitle'), placement: f.get('placement') || null,
-      estimate: rival?.estimate ?? null,
+      notes: f.get('notes'), estimate: rival?.estimate ?? null,
     };
     const competitors = rival
       ? (c.competitors || []).map(x => x.id === rival.id ? entry : x)
       : [...(c.competitors || []), entry];
     const ok = await saveAndReload(
-      () => api(`/api/competitions/${c.id}`, 'PUT', { competitors }),
+      () => api(`/api/competitions/${c.id}`, 'PUT', autoPlacementPatch(c, competitors, currentWeekOurScore(c))),
       rival ? 'Rival saved' : 'Rival added');
-    if (ok) dlg.close();
+    if (ok) {
+      dlg.close();
+      afterSave?.();
+    }
   });
   dlg.querySelector('#delrival')?.addEventListener('click', async () => {
     const competitors = (c.competitors || []).filter(x => x.id !== rival.id);
-    const ok = await saveAndReload(() => api(`/api/competitions/${c.id}`, 'PUT', { competitors }), 'Rival removed');
-    if (ok) dlg.close();
+    const ok = await saveAndReload(
+      () => api(`/api/competitions/${c.id}`, 'PUT', autoPlacementPatch(c, competitors, currentWeekOurScore(c))),
+      'Rival removed');
+    if (ok) {
+      dlg.close();
+      afterSave?.();
+    }
   });
 }
 
@@ -1133,67 +1513,164 @@ function rivalRecords() {
   }
   return out;
 }
+function rivalRecordsByName(name) {
+  const needle = String(name || '').toLowerCase();
+  return rivalRecords()
+    .filter(x => x.r.name.toLowerCase() === needle)
+    .sort((a, b) => cmp(b.date, a.date));
+}
+function rivalEstimateSummary(r) {
+  const est = r.estimate || null;
+  if (!est) return '<span class="muted">No calculator saved.</span>';
+  const counts = [...FLORIST_RANKS].reverse()
+    .map(rank => ({ rank, count: (est.counts || {})[rank.key] || 0 }))
+    .filter(x => x.count > 0)
+    .map(x => `<span class="tag tag-${x.rank.color}" style="margin:2px 4px 2px 0">${x.rank.label} × ${x.count}</span>`)
+    .join('');
+  const stats = estimateStats(est);
+  return `
+    ${counts || '<span class="muted">No title counts.</span>'}
+    <div class="muted small">Players ${fmtNum(est.totalPlayers)} · min ${fmtNum(stats.min)} · avg ${fmtNum(stats.avg)} · max ${fmtNum(stats.max)}</div>`;
+}
+
+function renderRivalDetail(rawName) {
+  const name = decodeURIComponent(rawName || '');
+  const rows = rivalRecordsByName(name);
+  if (!rows.length) { location.hash = '#/rivals'; return; }
+  const scores = rows.map(x => x.r.score).filter(v => v != null);
+  const best = scores.length ? Math.max(...scores) : null;
+  const avg = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+  const latest = rows[0];
+
+  app().innerHTML = chrome(`
+    <a href="#/rivals" class="backlink">← Rivals</a>
+    <div class="toolbar" style="justify-content:space-between">
+      <h1 style="margin:0">${esc(latest.r.name)}</h1>
+      ${isAdmin() ? `<button class="btn small" id="edit-latest-rival">Edit latest notes</button>` : ''}
+    </div>
+    <div class="cardgrid">
+      <div class="card stat">
+        <div class="num">${rows.length}</div>
+        <div class="lbl">Meetings</div>
+        <div class="sub">recorded weeks</div>
+      </div>
+      <div class="card stat">
+        <div class="num">${fmtNum(best)}</div>
+        <div class="lbl">Best score</div>
+        <div class="sub">highest seen</div>
+      </div>
+      <div class="card stat">
+        <div class="num">${fmtNum(avg)}</div>
+        <div class="lbl">Average</div>
+        <div class="sub">scored weeks</div>
+      </div>
+      <div class="card stat">
+        <div class="num">${ordinal(latest.r.placement)}</div>
+        <div class="lbl">Latest place</div>
+        <div class="sub">${esc(weekLabel(latest.comp))}</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="toolbar" style="justify-content:space-between">
+        <h2 style="margin:0">Notes</h2>
+        ${isAdmin() ? `<button class="btn secondary small" id="edit-rival-notes">Edit</button>` : ''}
+      </div>
+      ${latest.r.notes
+        ? `<p class="muted" style="white-space:pre-wrap">${esc(latest.r.notes)}</p>`
+        : '<p class="muted">No notes saved for the latest meeting yet.</p>'}
+    </div>
+    <div class="card">
+      <h2 style="margin-top:0">Competition history</h2>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Week</th><th>Score</th><th>Place</th><th>Rank</th><th>Potential calculator</th><th>Notes</th>${isAdmin() ? '<th></th>' : ''}</tr></thead>
+        <tbody>${rows.map(x => `
+          <tr class="rowlink" data-go="#/weeks/${x.comp.id}">
+            <td>${esc(weekLabel(x.comp))}</td>
+            <td>${fmtNum(x.r.score)}</td>
+            <td>${ordinal(x.r.placement)}</td>
+            <td>${esc(x.r.rankTitle || '—')}</td>
+            <td class="wrap">${rivalEstimateSummary(x.r)}</td>
+            <td class="wrap">${x.r.notes ? esc(x.r.notes) : '<span class="muted">—</span>'}</td>
+            ${isAdmin() ? `<td><button class="btn secondary small" data-edit-rival="${x.comp.id}:${x.r.id}" type="button">Edit</button></td>` : ''}
+          </tr>`).join('')}</tbody>
+      </table></div>
+    </div>
+  `, '#/rivals');
+  bindChrome();
+  const rerender = () => renderRivalDetail(encodeURIComponent(name));
+  $('#edit-latest-rival')?.addEventListener('click', () => rivalFormDialog(latest.comp, latest.r, rerender));
+  $('#edit-rival-notes')?.addEventListener('click', () => rivalFormDialog(latest.comp, latest.r, rerender));
+  document.querySelectorAll('[data-edit-rival]').forEach(btn => btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const [compId, rivalId] = btn.dataset.editRival.split(':');
+    const comp = state.data.competitions.find(x => x.id === compId);
+    const rival = (comp?.competitors || []).find(x => x.id === rivalId);
+    if (comp && rival) rivalFormDialog(comp, rival, rerender);
+  }));
+  document.querySelectorAll('[data-go]').forEach(tr => tr.addEventListener('click', () => { location.hash = tr.dataset.go; }));
+}
 
 function renderRivalsTable() {
   const q = ui.search.rivals.toLowerCase();
-  let rows = rivalRecords().filter(x => !q || x.r.name.toLowerCase().includes(q));
+  const allRows = rivalRecords().filter(x => !q || x.r.name.toLowerCase().includes(q));
+  const topRows = [...allRows].sort((a, b) => cmp(b.r.score, a.r.score) || cmp(a.r.name, b.r.name)).slice(0, 10);
+  let rows = ui.rivalsShowAll ? [...allRows] : topRows;
   const { key, dir } = ui.sort.rivals;
   const val = x => ({ date: x.date, name: x.r.name, score: x.r.score, placement: x.r.placement })[key];
-  rows.sort((a, b) => dir * cmp(val(a), val(b)));
+  rows.sort((a, b) => dir * cmp(val(a), val(b)) || cmp(a.r.name, b.r.name));
 
   // summary card when a search narrows to a single guild
-  const names = [...new Set(rows.map(x => x.r.name.toLowerCase()))];
+  const names = [...new Set(allRows.map(x => x.r.name.toLowerCase()))];
   let summary = '';
-  if (q && names.length === 1 && rows.length) {
-    const scores = rows.map(x => x.r.score).filter(v => v != null);
+  if (q && names.length === 1 && allRows.length) {
+    const scores = allRows.map(x => x.r.score).filter(v => v != null);
     const best = scores.length ? Math.max(...scores) : null;
     const avg = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
-    const last = [...rows].sort((a, b) => cmp(b.date, a.date))[0];
+    const last = [...allRows].sort((a, b) => cmp(b.date, a.date))[0];
     summary = `
       <div class="card">
         <h2 style="margin-top:0">${esc(last.r.name)}</h2>
-        <p>Faced <strong>${rows.length}×</strong> · best score <strong>${fmtNum(best)}</strong>
+        <p>Faced <strong>${allRows.length}×</strong> · best score <strong>${fmtNum(best)}</strong>
           · avg <strong>${fmtNum(avg)}</strong></p>
         <p class="muted">Last met ${esc(weekLabel(last.comp))}: scored ${fmtNum(last.r.score)},
           placed ${ordinal(last.r.placement)}${last.r.rankTitle ? ` (${esc(last.r.rankTitle)})` : ''}.</p>
+        ${last.r.notes ? `<p class="muted" style="white-space:pre-wrap">${esc(last.r.notes)}</p>` : ''}
       </div>`;
+  }
+
+  const toggle = $('#rtoggle');
+  if (toggle) {
+    toggle.textContent = ui.rivalsShowAll ? 'Show top 10' : 'Show full list';
+    toggle.hidden = allRows.length <= 10;
   }
 
   $('#rivals-table').innerHTML = summary + (rows.length ? `
     <div class="tablewrap">
     <table data-sortview="rivals">
       <thead><tr>
-        <th data-key="date" class="${sortArrow('rivals', 'date')}">Week</th>
         <th data-key="name" class="${sortArrow('rivals', 'name')}">Guild</th>
         <th data-key="score" class="${sortArrow('rivals', 'score')}">Score</th>
         <th>Rank</th>
         <th data-key="placement" class="${sortArrow('rivals', 'placement')}">Place</th>
+        <th data-key="date" class="${sortArrow('rivals', 'date')}">Week</th>
       </tr></thead>
       <tbody>${rows.map(x => `
         <tr class="rowlink" data-name="${esc(x.r.name)}" data-week="${x.comp.id}">
-          <td>${esc(weekLabel(x.comp))}</td>
           <td>${esc(x.r.name)}</td>
           <td>${fmtNum(x.r.score)}</td>
           <td>${esc(x.r.rankTitle || '—')}</td>
           <td>${ordinal(x.r.placement)}</td>
+          <td>${esc(weekLabel(x.comp))}</td>
         </tr>`).join('')}
       </tbody>
     </table>
     </div>
-    <p class="muted small">Tap a row to see that guild's full history; tap the week column header to sort by date.</p>`
+    <p class="muted small">${ui.rivalsShowAll ? `Showing all ${allRows.length} records.` : `Showing top ${rows.length} by score.`} Tap a row to open that guild's full history.</p>`
     : `<div class="empty"><div class="big">⚔️</div>No rival records${q ? ' match' : ' yet — log them inside each competition week'}.</div>`);
 
   bindSortHeaders('rivals', renderRivalsTable);
   document.querySelectorAll('#rivals-table tr[data-name]').forEach(tr =>
-    tr.addEventListener('click', () => {
-      if (ui.search.rivals.toLowerCase() === tr.dataset.name.toLowerCase()) {
-        location.hash = `#/weeks/${tr.dataset.week}`;
-      } else {
-        ui.search.rivals = tr.dataset.name;
-        $('#rsearch').value = tr.dataset.name;
-        renderRivalsTable();
-      }
-    }));
+    tr.addEventListener('click', () => { location.hash = `#/rivals/${encodeURIComponent(tr.dataset.name)}`; }));
 }
 
 // Estimate cards: one per rival guild in a competition week. Count the florist
@@ -1321,7 +1798,14 @@ function renderRivals() {
 
   app().innerHTML = chrome(`
     <h1>Rivals</h1>
+    <h2>Competitor history</h2>
+    <div class="toolbar">
+      <input type="search" id="rsearch" placeholder="Search guild name…" value="${esc(ui.search.rivals)}">
+      <button class="btn secondary small" id="rtoggle" type="button">Show full list</button>
+    </div>
+    <div id="rivals-table"></div>
     ${comps.length ? `
+      <h2>Score estimates</h2>
       <div class="toolbar">
         <select id="rweek">${comps.map(x =>
           `<option value="${x.id}" ${c && x.id === c.id ? 'selected' : ''}>${esc(weekLabel(x))}</option>`).join('')}</select>
@@ -1336,15 +1820,11 @@ function renderRivals() {
         : `<div class="empty"><div class="big">⚔️</div>No rivals in this week yet.${isAdmin() ? ' Add them with the button above.' : ''}</div>`}
       <p class="muted small">Our own max potential: <strong>${fmtNum(guildPotential().value)}</strong> — the number to push past theirs.</p>`
       : '<div class="empty"><div class="big">⚔️</div>Create a competition week first (Weeks tab), then estimate rivals here.</div>'}
-    <h2>Competitor history</h2>
-    <div class="toolbar">
-      <input type="search" id="rsearch" placeholder="Search guild name…" value="${esc(ui.search.rivals)}">
-    </div>
-    <div id="rivals-table"></div>
   `, '#/rivals');
   bindChrome();
   renderRivalsTable();
   $('#rsearch').addEventListener('input', e => { ui.search.rivals = e.target.value; renderRivalsTable(); });
+  $('#rtoggle').addEventListener('click', () => { ui.rivalsShowAll = !ui.rivalsShowAll; renderRivalsTable(); });
   $('#rweek')?.addEventListener('change', e => { ui.rivalsWeekId = e.target.value; renderRivals(); });
   $('#estaddrival')?.addEventListener('click', () => rivalFormDialog(c, null));
   document.querySelectorAll('[data-editrival]').forEach(el =>
@@ -1395,10 +1875,9 @@ function renderSettings() {
 
       <div class="card">
         <h2 style="margin-top:0">Potential estimate <span class="badge">est.</span></h2>
-        <p class="muted small">Member potential = quest count × (score per quest + avg bonus if enabled),
-          unless a member has a manual override. Guild potential sums active members —
-          or uses the manual member count below if set. Tune once the real flower→quest
-          relationship is clear.</p>
+        <p class="muted small">Member potential = max quests × ((that member's highest-point
+          owned flower × max multiplier) + that member's bonus on that flower), unless a member
+          has a manual override. Guild potential sums active members.</p>
         <div class="formrow">
           <div><label>Score per quest</label><input name="p_scorePerQuest" ${ro} type="number" step="any" value="${s.potential.scorePerQuest}"></div>
           <div><label>Avg bonus per quest</label><input name="p_avgBonus" ${ro} type="number" step="any" value="${s.potential.avgBonus}"></div>
@@ -1486,13 +1965,15 @@ function renderSettings() {
 function render() {
   if (!state.role || !state.data) { renderLogin(); return; }
   const hash = location.hash || '#/dashboard';
-  const [, view, id] = hash.split('/');
+  const [, view, ...rest] = hash.split('/');
+  const id = rest.join('/');
   window.scrollTo(0, 0);
   switch (view) {
     case 'members': id ? renderMemberDetail(id) : renderMembers(); break;
+    case 'summary': renderSummary(); break;
     case 'flowers': renderFlowers(); break;
     case 'weeks': id ? renderWeekDetail(id) : renderWeeks(); break;
-    case 'rivals': renderRivals(); break;
+    case 'rivals': id ? renderRivalDetail(id) : renderRivals(); break;
     case 'settings': renderSettings(); break;
     default: renderDashboard();
   }

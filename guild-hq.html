@@ -1439,11 +1439,13 @@ function mergedMemberResultsForSave(c) {
     questsCompleted: r.questsCompleted,
     questDetail: (r.questDetail || []).map(q => ({ ...q })),
   }]));
-  for (const [memberId, draft] of Object.entries(ui.weekDraft.results)) {
-    if (hasMemberResultData(draft)) {
-      merged.set(memberId, { memberId, ...draft, questDetail: (draft.questDetail || []).map(q => ({ ...q })) });
-    } else {
-      merged.delete(memberId);
+  if (ui.weekDraft.compId === c.id) {
+    for (const [memberId, draft] of Object.entries(ui.weekDraft.results)) {
+      if (hasMemberResultData(draft)) {
+        merged.set(memberId, { memberId, ...draft, questDetail: (draft.questDetail || []).map(q => ({ ...q })) });
+      } else {
+        merged.delete(memberId);
+      }
     }
   }
   return [...merged.values()];

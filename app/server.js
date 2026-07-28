@@ -336,6 +336,7 @@ function sanitizeCompetitionPatch(body, existing) {
       score: optNum(r.score),
       rankTitle: str(r.rankTitle, 60),
       placement: optNum(r.placement),
+      notes: str(r.notes, 2000),
       estimate: sanitizeEstimate(r.estimate),
     })).filter(r => r.name);
   }

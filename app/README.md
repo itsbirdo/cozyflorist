@@ -102,25 +102,30 @@ Until HTTPS is on, keep `COOKIE_SECURE=false` or logins won't stick.
 
 ## Using the app
 
-- **Home** — guild strength at a glance: members vs capacity, flowers owned,
-  breakdown by rarity, and the *max points potential* estimate (clearly badged
-  "est." — its inputs are tunable in Settings, since the game's exact flower→quest
-  scoring isn't publicly documented).
+- **Home** — guild strength at a glance: members vs capacity, catalogue size,
+  breakdown by rarity, and the *max points potential* estimate (badged "est.":
+  per member, highest-point owned flower × max multiplier + that flower's bonus,
+  × max quests).
+- **Summary** — the member flower summary: every member with their top 5
+  highest-point flowers, max potential, and the florist rank that potential
+  earns; searchable and filterable by flower, with mobile-friendly cards.
 - **Members** — sortable/filterable roster with colour-coded roles
   (Leader / Co-Leader / Elder / Elite / Member); tap a member for details, notes,
   week-by-week history, and their flowers — one per line, sortable by rarity,
   points, or bonus, with per-flower bonus points editable inline.
 - **Flowers** — the catalogue with rarity (UR / SSR / SR / R / N, colour-coded)
-  and points; tap a flower to see who owns it (and their bonuses).
-- **Weeks** — one record per competition (Tue–Sun). Log your result, the 9 rival
-  guilds, and per-member results (score + quests; optionally itemised quests with
-  base/maxed/bonus, which can auto-fill the totals). CSV export per week.
-- **Rivals** — per-guild estimate cards for a competition week: enter each
-  rival's total players and the florist titles their members display, get
-  min/average/max score estimates (computed untitled count and known-titles %),
-  and once the week ends the actual score shows the prediction error. Below
-  that, every competitor record across all weeks in one searchable table;
-  search a guild's name for a summary (times faced, best/avg score, last met).
+  and points, sorted by points by default; tap a flower to see who owns it
+  (and their bonuses).
+- **Weeks** — one record per competition (Tue–Sun). Log the rival guilds and
+  per-member results (score + quests; optionally itemised quests). Member
+  scores tally into the week's our-score automatically, placements are
+  auto-ranked from scores, and a colour bar graph compares all guilds.
+  CSV export per week.
+- **Rivals** — competitor history (top 10 by score, expandable) where each
+  guild links to its own detail page: meetings, best/average score, per-week
+  notes, and any saved title-count estimate. Plus per-guild estimate cards for
+  a chosen week: enter total players and displayed florist titles, get
+  min/average/max score estimates; the actual score shows the prediction error.
 - **Settings** — guild name, capacity, quest scoring values (base scores,
   max multiplier, bonus range), the potential-estimate inputs, and the florist
   rank point floors behind the Rivals calculator. All editable in-app so a game
