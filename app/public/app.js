@@ -269,7 +269,7 @@ function chrome(content, activeTab) {
   const s = state.data.settings;
   return `
     <header class="topbar">
-      <span class="title">🌸 ${esc(s.guildName)}</span>
+      <span class="title">💐 ${esc(s.guildName)}</span>
       <span class="rolechip ${isAdmin() ? 'admin' : ''}">${isAdmin() ? 'Admin' : 'Viewer'}</span>
       <button class="btn secondary small" id="logout">Log out</button>
     </header>
@@ -292,7 +292,7 @@ function bindChrome() {
 function renderLogin() {
   app().innerHTML = `
     <div class="login">
-      <div class="flower">🌸</div>
+      <div class="flower">💐</div>
       <h1>Guild HQ</h1>
       <p class="muted">The Cozy Florist — guild leadership tracker</p>
       <form id="loginform">
