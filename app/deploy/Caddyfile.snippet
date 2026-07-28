@@ -1,0 +1,26 @@
+# Guild HQ — Caddy site block.
+#
+# ⚠️ This VPS's Caddy is SHARED with other apps (e.g. the bottleshops CRM).
+# APPEND this block to the existing /etc/caddy/Caddyfile — never replace that
+# file wholesale. Then: sudo systemctl reload caddy
+#
+# No basic_auth here on purpose: Guild HQ has its own two-password login
+# (admin = edit, viewer = read-only), so a Caddy password gate would just be
+# a second login prompt for the guildies.
+#
+# Use a hostname of its own (a free DuckDNS name pointed at this VPS works) —
+# port 443 is shared with the other sites by hostname (SNI). Raw-IP with
+# `tls internal` only works if no other site already claims the bare IP.
+
+guildhq.duckdns.org {
+    encode gzip
+
+    # Belt-and-braces security headers at the edge.
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+    }
+
+    reverse_proxy 127.0.0.1:8321
+}

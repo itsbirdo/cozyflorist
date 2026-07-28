@@ -1,0 +1,52 @@
+# Guild HQ (Cozy Florist guild tracker) — systemd unit
+# Install: sudo cp guildhq.service /etc/systemd/system/
+#          sudo systemctl daemon-reload
+#          sudo systemctl enable --now guildhq
+# Logs:    journalctl -u guildhq -f
+#
+# Assumes the repo is at /opt/guildhq and runs as a dedicated user:
+#   sudo useradd --system --home /opt/guildhq --shell /usr/sbin/nologin guildhq
+#   sudo chown -R guildhq:guildhq /opt/guildhq
+# Passwords live in /etc/guildhq.env (root-owned, chmod 600) — see guildhq.env.example.
+
+[Unit]
+Description=Guild HQ (Cozy Florist guild tracker)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=guildhq
+Group=guildhq
+WorkingDirectory=/opt/guildhq/app
+
+# Bind to localhost only — Caddy provides TLS and is the sole public entrypoint.
+Environment=HOST=127.0.0.1
+Environment=PORT=8321
+# Data lives OUTSIDE the git checkout so repo operations can never touch it.
+# StateDirectory below creates /var/lib/guildhq owned by the service user.
+Environment=DATA_DIR=/var/lib/guildhq
+# Behind Caddy's HTTPS. Set false only for plain-http testing or logins won't stick.
+Environment=COOKIE_SECURE=true
+# ADMIN_PASSWORD / VIEWER_PASSWORD. systemd reads this file as root before
+# dropping privileges, so root:root 600 is correct.
+EnvironmentFile=/etc/guildhq.env
+
+ExecStart=/usr/bin/node /opt/guildhq/app/server.js
+Restart=always
+RestartSec=3
+
+StateDirectory=guildhq
+
+# --- hardening ---
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6
+# The only writable path the app needs is DATA_DIR, provided by StateDirectory.
+
+[Install]
+WantedBy=multi-user.target

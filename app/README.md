@@ -35,6 +35,11 @@ Configuration comes from `config.json` and/or environment variables (env wins):
 
 ## Deploy on a VPS
 
+> **Deploying with the VPS agent?** Use the runbook in
+> [`deploy/AGENT_DEPLOY.md`](deploy/AGENT_DEPLOY.md) — it ships with a hardened
+> systemd unit, a Caddy site block, a secrets template, and `deploy/push.sh`
+> for one-command redeploys. The sections below are the manual equivalents.
+
 ### Option A — plain Node + systemd
 
 ```sh
