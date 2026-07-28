@@ -188,6 +188,10 @@ function guildPotential() {
       : 'no active members with flower data yet',
   };
 }
+function guildRankText() {
+  const rank = state.data?.settings?.guildRank;
+  return rank ? ` · Guild rank: <strong>${esc(rank)}</strong>` : '';
+}
 
 // ui utilities ---------------------------------------------------------------
 
@@ -342,6 +346,7 @@ function renderDashboard() {
         <h2 style="margin-top:0">Latest week · ${esc(weekLabel(latest))}</h2>
         <p>Our score: <strong>${fmtNum(latest.ourScore)}</strong>
            · Placement: <strong>${ordinal(latest.ourPlacement)}</strong>
+           ${guildRankText()}
            ${latest.ourRankTitle ? `· ${esc(latest.ourRankTitle)}` : ''}</p>
         ${top ? `<p class="muted">Top rival: ${esc(top.name)} (${fmtNum(top.score)})</p>` : ''}
         <a href="#/weeks/${latest.id}" class="backlink">Open week →</a>
@@ -966,7 +971,7 @@ function renderWeeks() {
         <strong>${esc(weekLabel(c))}</strong>
         ${c.ourPlacement ? `<span class="chip rose">${ordinal(c.ourPlacement)}</span>` : ''}
         <p class="muted" style="margin:4px 0 0">
-          Score ${fmtNum(c.ourScore)}${c.ourRankTitle ? ` · ${esc(c.ourRankTitle)}` : ''}
+          Score ${fmtNum(c.ourScore)}${guildRankText()}${c.ourRankTitle ? ` · ${esc(c.ourRankTitle)}` : ''}
           · ${(c.competitors || []).length} rivals · ${(c.memberResults || []).length} member results
         </p>
       </div>`).join('')
@@ -1133,6 +1138,7 @@ function renderWeekDetail(id) {
       <h2 style="margin-top:0">Our result</h2>
       <p>Score <strong data-week-our-score>${fmtNum(displayOurScore)}</strong>
         · Placement <strong>${ordinal(placements.get('ours') ?? c.ourPlacement)}</strong>
+        ${guildRankText()}
         ${c.ourRankTitle ? `· ${esc(c.ourRankTitle)}` : ''}</p>
       ${c.notes ? `<p class="muted" style="white-space:pre-wrap">${esc(c.notes)}</p>` : ''}
       ${isAdmin() ? `
@@ -1853,6 +1859,8 @@ function renderSettings() {
         <h2 style="margin-top:0">Guild</h2>
         <label>Guild name</label>
         <input name="guildName" ${ro} value="${esc(s.guildName)}">
+        <label>Guild rank</label>
+        <input name="guildRank" ${ro} value="${esc(s.guildRank)}" placeholder="#12">
         <label>Member capacity (grows as the guild levels)</label>
         <input name="memberCapacity" ${ro} type="number" min="1" value="${s.memberCapacity}">
       </div>
@@ -1940,6 +1948,7 @@ function renderSettings() {
       const f = new FormData(e.target);
       await saveAndReload(() => api('/api/settings', 'PUT', {
         guildName: f.get('guildName'),
+        guildRank: f.get('guildRank'),
         memberCapacity: f.get('memberCapacity'),
         questsMin: f.get('questsMin'),
         questsMax: f.get('questsMax'),

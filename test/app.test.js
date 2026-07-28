@@ -33,6 +33,7 @@ globalThis.__guildHq = {
   mergedMemberResultsForSave,
   memberPotential,
   guildPotential,
+  guildRankText,
   bestPotentialFlower,
   memberResultsScoreSummary,
   weeklyPlacementMap,
@@ -59,7 +60,7 @@ globalThis.__guildHq = {
 function fullData(over = {}) {
   return {
     settings: {
-      guildName: 'My Guild', memberCapacity: 40, questsMin: 18, questsMax: 24,
+      guildName: 'My Guild', guildRank: '', memberCapacity: 40, questsMin: 18, questsMax: 24,
       baseQuestScores: [21, 23, 25, 28, 30], maxMultiplier: 2, bonusMin: 1, bonusMax: 4,
       potential: { scorePerQuest: 60, includeBonus: true, avgBonus: 2.5, membersOverride: null },
       floristRanks: { standard: 500, senior: 700, honored: 1000, peerless: 1300, supreme: 1400, unknown: 500 },
@@ -116,6 +117,16 @@ test('flowers page defaults to max points sorting', () => {
 
   assert.equal(ui.sort.flowers.key, 'points');
   assert.equal(ui.sort.flowers.dir, -1);
+});
+
+test('guild rank display is blank until configured and escapes saved text', () => {
+  const { state, guildRankText } = loadApp();
+  state.data = fullData();
+
+  assert.equal(guildRankText(), '');
+
+  state.data.settings.guildRank = '<Rank 12>';
+  assert.equal(guildRankText(), ' · Guild rank: <strong>&lt;Rank 12&gt;</strong>');
 });
 
 test('weekly competitors default to place with score as tie-breaker', () => {

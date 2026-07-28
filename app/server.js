@@ -51,6 +51,7 @@ function defaultData() {
   return {
     settings: {
       guildName: 'My Guild',
+      guildRank: '',
       memberCapacity: 40,
       questsMin: 18,
       questsMax: 24,
@@ -363,6 +364,7 @@ function sanitizeCompetitionPatch(body, existing) {
 function sanitizeSettings(body) {
   const s = data.settings;
   if ('guildName' in body) s.guildName = str(body.guildName, 80) || 'My Guild';
+  if ('guildRank' in body) s.guildRank = str(body.guildRank, 40);
   if ('memberCapacity' in body) s.memberCapacity = Math.max(1, Math.min(999, optNum(body.memberCapacity) ?? s.memberCapacity));
   if ('questsMin' in body) s.questsMin = Math.max(0, Math.min(99, optNum(body.questsMin) ?? s.questsMin));
   if ('questsMax' in body) s.questsMax = Math.max(s.questsMin, Math.min(99, optNum(body.questsMax) ?? s.questsMax));
