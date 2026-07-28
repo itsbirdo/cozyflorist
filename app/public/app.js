@@ -133,6 +133,15 @@ const RARITIES = [
   { key: 'R', label: 'Rare', color: 'blue' },
   { key: 'N', label: 'Normal', color: 'green' },
 ];
+function rarityForPoints(points) {
+  const n = optNum(points);
+  if (n === null) return '';
+  if (n >= 28) return 'UR';
+  if (n >= 25) return 'SSR';
+  if (n >= 23) return 'SR';
+  if (n >= 21) return 'R';
+  return 'N';
+}
 function rarityRank(key) { // UR highest, no rarity lowest
   const i = RARITIES.findIndex(r => r.key === key);
   return i === -1 ? 0 : RARITIES.length - i;
@@ -948,7 +957,13 @@ function flowerFormDialog(flower) {
       <button class="btn secondary" type="button" data-close>Cancel</button>
     </form>`);
   dlg.querySelector('[data-close]').addEventListener('click', () => dlg.close());
-  dlg.querySelector('#fform').addEventListener('submit', async e => {
+  const form = dlg.querySelector('#fform');
+  const rarityInput = form.elements.rarity;
+  const pointsInput = form.elements.points;
+  const syncRarityFromPoints = () => { rarityInput.value = rarityForPoints(pointsInput.value); };
+  pointsInput.addEventListener('input', syncRarityFromPoints);
+  pointsInput.addEventListener('change', syncRarityFromPoints);
+  form.addEventListener('submit', async e => {
     e.preventDefault();
     const fd = new FormData(e.target);
     const body = { name: fd.get('name'), rarity: fd.get('rarity') || null, points: fd.get('points') };

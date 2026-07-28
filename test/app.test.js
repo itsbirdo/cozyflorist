@@ -29,6 +29,7 @@ globalThis.__guildHq = {
   topMemberFlowers,
   firstFlowerOwnerName,
   flowerOwners,
+  rarityForPoints,
   sortWeekCompetitorRows,
   mergedMemberResultsForSave,
   memberPotential,
@@ -118,6 +119,18 @@ test('flowers page defaults to max points sorting', () => {
 
   assert.equal(ui.sort.flowers.key, 'points');
   assert.equal(ui.sort.flowers.dir, -1);
+});
+
+test('flower points pick the matching rarity tier', () => {
+  const { rarityForPoints } = loadApp();
+
+  assert.equal(rarityForPoints(30), 'UR');
+  assert.equal(rarityForPoints(28), 'UR');
+  assert.equal(rarityForPoints(25), 'SSR');
+  assert.equal(rarityForPoints(23), 'SR');
+  assert.equal(rarityForPoints(21), 'R');
+  assert.equal(rarityForPoints(20), 'N');
+  assert.equal(rarityForPoints(''), '');
 });
 
 test('guild rank display is blank until configured and escapes saved text', () => {
