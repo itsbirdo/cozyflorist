@@ -300,9 +300,9 @@ test('current competition summary totals saved member quests and remaining quest
 test('current competition remaining list sorts by name or quests left', () => {
   const { ui, sortedCompetitionRemainingRows } = loadApp();
   const rows = [
-    { member: { name: 'Zoe' }, remaining: 4 },
-    { member: { name: 'Ada' }, remaining: 12 },
-    { member: { name: 'Mia' }, remaining: 12 },
+    { member: { name: 'Zoe' }, completed: 20, remaining: 4 },
+    { member: { name: 'Ada' }, completed: 12, remaining: 12 },
+    { member: { name: 'Mia' }, completed: 8, remaining: 12 },
   ];
 
   ui.sort.competitionRemaining = { key: 'name', dir: 1 };
@@ -318,6 +318,16 @@ test('current competition remaining list sorts by name or quests left', () => {
       ['Ada', 12],
       ['Mia', 12],
       ['Zoe', 4],
+    ]),
+  );
+
+  ui.sort.competitionRemaining = { key: 'completed', dir: -1 };
+  assert.equal(
+    JSON.stringify(sortedCompetitionRemainingRows(rows).map(row => [row.member.name, row.completed])),
+    JSON.stringify([
+      ['Zoe', 20],
+      ['Ada', 12],
+      ['Mia', 8],
     ]),
   );
 });

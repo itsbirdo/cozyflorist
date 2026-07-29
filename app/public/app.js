@@ -381,27 +381,20 @@ function renderDashboard() {
            ${guildRankText()}
            ${latest.ourRankTitle ? `· ${esc(latest.ourRankTitle)}` : ''}</p>
         ${top ? `<p class="muted">Top rival: ${esc(top.name)} (${fmtNum(top.score)})</p>` : ''}
-        <div class="section-head">
-          <h3>Quests remaining</h3>
-          ${comp.remaining.length ? `
-            <label>Sort
-              <select id="remaining-sort">
-                <option value="name:1" ${ui.sort.competitionRemaining.key === 'name' && ui.sort.competitionRemaining.dir === 1 ? 'selected' : ''}>Name A-Z</option>
-                <option value="name:-1" ${ui.sort.competitionRemaining.key === 'name' && ui.sort.competitionRemaining.dir === -1 ? 'selected' : ''}>Name Z-A</option>
-                <option value="remaining:1" ${ui.sort.competitionRemaining.key === 'remaining' && ui.sort.competitionRemaining.dir === 1 ? 'selected' : ''}>Quests left low-high</option>
-                <option value="remaining:-1" ${ui.sort.competitionRemaining.key === 'remaining' && ui.sort.competitionRemaining.dir === -1 ? 'selected' : ''}>Quests left high-low</option>
-              </select>
-            </label>` : ''}
-        </div>
+        <h3>Quests remaining</h3>
         ${comp.remaining.length ? `
           <div class="tablewrap remaining-table-wrap"><table class="remaining-table">
-            <thead><tr><th>Title</th><th>Member</th><th>Quests left</th></tr></thead>
+            <thead><tr>
+              <th data-key="name" class="${sortArrow('competitionRemaining', 'name')}">Member</th>
+              <th data-key="completed" class="${sortArrow('competitionRemaining', 'completed')}">Quests completed</th>
+              <th data-key="remaining" class="${sortArrow('competitionRemaining', 'remaining')}">Quests left</th>
+            </tr></thead>
             <tbody>
               ${remainingRows.map(row => `
                 <tr>
-                  <td>${roleTag(row.member.role || 'Member')}</td>
-                  <td>${esc(row.member.name)}</td>
-                  <td>${row.remaining}</td>
+                  <td><strong>${esc(row.member.name)}</strong><br>${roleTag(row.member.role || 'Member')}<br>${floristRankTag(memberPotential(row.member))}</td>
+                  <td>${row.completed}</td>
+                  <td><strong>${row.remaining}</strong></td>
                 </tr>`).join('')}
             </tbody>
           </table></div>`
@@ -450,11 +443,7 @@ function renderDashboard() {
     </div>
   `, '#/dashboard');
   bindChrome();
-  $('#remaining-sort')?.addEventListener('change', e => {
-    const [key, dir] = e.target.value.split(':');
-    ui.sort.competitionRemaining = { key, dir: Number(dir) };
-    renderDashboard();
-  });
+  bindSortHeaders('competitionRemaining', renderDashboard);
 }
 
 // ---------------------------------------------------------------- members --
@@ -1214,7 +1203,11 @@ function currentCompetitionSummary(c) {
 }
 function sortedCompetitionRemainingRows(rows) {
   const { key, dir } = ui.sort.competitionRemaining;
-  const val = row => key === 'remaining' ? row.remaining : row.member.name;
+  const val = row => ({
+    name: row.member.name,
+    completed: row.completed,
+    remaining: row.remaining,
+  })[key];
   return [...rows].sort((a, b) => dir * cmp(val(a), val(b)) || cmp(a.member.name, b.member.name));
 }
 function currentWeekOurScore(c) {

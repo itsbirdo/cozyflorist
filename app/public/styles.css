@@ -120,9 +120,13 @@ nav.tabs a.active { color: var(--accent); }
 .section-head label { margin: 0; min-width: 180px; }
 .section-head select { margin: 3px 0 0; padding: 7px 10px; }
 .remaining-table-wrap { margin-top: 6px; }
-.remaining-table { min-width: 420px; }
-.remaining-table td:nth-child(2) { white-space: normal; overflow-wrap: anywhere; }
-.remaining-table td:nth-child(3) { font-weight: 800; font-variant-numeric: tabular-nums; }
+.remaining-table { min-width: 560px; }
+.remaining-table td:first-child { white-space: normal; min-width: 220px; }
+.remaining-table td:first-child .tag { margin-top: 5px; }
+.remaining-table td:nth-child(2),
+.remaining-table td:nth-child(3) {
+  font-size: 1rem; font-variant-numeric: tabular-nums;
+}
 
 .flowerlist { display: grid; gap: 5px; align-items: start; min-width: 240px; }
 .flowerpill {
