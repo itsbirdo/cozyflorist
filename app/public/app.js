@@ -394,14 +394,17 @@ function renderDashboard() {
             </label>` : ''}
         </div>
         ${comp.remaining.length ? `
-          <div class="remaining-list">
-            ${remainingRows.map(row => `
-              <div class="remaining-member">
-                ${roleTag(row.member.role || 'Member')}
-                <strong>${esc(row.member.name)}</strong>
-                <span>${row.remaining} left</span>
-              </div>`).join('')}
-          </div>`
+          <div class="tablewrap remaining-table-wrap"><table class="remaining-table">
+            <thead><tr><th>Title</th><th>Member</th><th>Quests left</th></tr></thead>
+            <tbody>
+              ${remainingRows.map(row => `
+                <tr>
+                  <td>${roleTag(row.member.role || 'Member')}</td>
+                  <td>${esc(row.member.name)}</td>
+                  <td>${row.remaining}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table></div>`
           : '<p class="muted">All active members have completed their weekly quests.</p>'}
         <a href="#/weeks/${latest.id}" class="backlink">Open week →</a>
       </div>`;

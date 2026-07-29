@@ -119,14 +119,10 @@ nav.tabs a.active { color: var(--accent); }
 .section-head h3 { margin-bottom: 4px; }
 .section-head label { margin: 0; min-width: 180px; }
 .section-head select { margin: 3px 0 0; padding: 7px 10px; }
-.remaining-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 7px; margin: 6px 0 10px; }
-.remaining-member {
-  display: grid; grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center; gap: 7px; border: 1px solid var(--line);
-  border-radius: var(--radius); padding: 7px 9px; background: var(--bg);
-}
-.remaining-member strong { min-width: 0; overflow-wrap: anywhere; }
-.remaining-member span:last-child { color: var(--muted); font-size: .8rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.remaining-table-wrap { margin-top: 6px; }
+.remaining-table { min-width: 420px; }
+.remaining-table td:nth-child(2) { white-space: normal; overflow-wrap: anywhere; }
+.remaining-table td:nth-child(3) { font-weight: 800; font-variant-numeric: tabular-nums; }
 
 .flowerlist { display: grid; gap: 5px; align-items: start; min-width: 240px; }
 .flowerpill {

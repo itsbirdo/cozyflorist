@@ -574,9 +574,10 @@ function serveStatic(res, urlPath) {
       return;
     }
     const ext = path.extname(file).toLowerCase();
+    const cacheControl = ['.html', '.js', '.css'].includes(ext) ? 'no-cache' : 'max-age=300';
     res.writeHead(200, {
       'Content-Type': MIME[ext] || 'application/octet-stream',
-      'Cache-Control': ext === '.html' ? 'no-cache' : 'max-age=300',
+      'Cache-Control': cacheControl,
     });
     res.end(buf);
   });
