@@ -31,7 +31,10 @@ globalThis.__guildHq = {
   flowerOwners,
   rarityForPoints,
   sortWeekCompetitorRows,
+  sortWeekMemberResultRows,
   mergedMemberResultsForSave,
+  ensureWeekDraft,
+  draftForWeek,
   memberPotential,
   guildPotential,
   guildRankText,
@@ -218,6 +221,31 @@ test('a draft from another week does not leak into this week\'s save', () => {
   );
 });
 
+test('editing the same week after a save reattaches draft data to that week', () => {
+  const { state, ui, ensureWeekDraft, draftForWeek, mergedMemberResultsForSave } = loadApp();
+  state.data = fullData({
+    members: [
+      { id: 'm1', name: 'Cozy Florist', active: true, role: 'Member', questCount: 18, flowerIds: [], flowerBonuses: {} },
+    ],
+    competitions: [{
+      id: 'w1',
+      memberResults: [{ memberId: 'm1', finalScore: 100, questsCompleted: 2, questDetail: [] }],
+    }],
+  });
+  const week = state.data.competitions[0];
+
+  ensureWeekDraft(week);
+  ui.weekDraft = { compId: null, results: {} };
+  draftForWeek(week, 'm1').finalScore = 180;
+  draftForWeek(week, 'm1').questsCompleted = 3;
+
+  assert.equal(ui.weekDraft.compId, 'w1');
+  assert.equal(
+    JSON.stringify(mergedMemberResultsForSave(week).map(r => [r.memberId, r.finalScore, r.questsCompleted])),
+    JSON.stringify([['m1', 180, 3]]),
+  );
+});
+
 test('member max potential uses highest base-point flower and that flower bonus', () => {
   const { state, bestPotentialFlower, memberPotential, guildPotential } = loadApp();
   state.data = fullData({
@@ -370,6 +398,21 @@ test('weekly competitor sorting uses computed placement values', () => {
   ], placements);
 
   assert.equal(rows.map(r => r.id).join(','), 'r1,ours,r2');
+});
+
+test('week member results sort by average quest score', () => {
+  const { ui, sortWeekMemberResultRows } = loadApp();
+  ui.sort.weekMemberResults = { key: 'average', dir: -1 };
+  const rows = sortWeekMemberResultRows([
+    { member: { name: 'Zoe', role: 'Member' }, result: { finalScore: 800, questsCompleted: 20, questDetail: [] } },
+    { member: { name: 'Ada', role: 'Member' }, result: { finalScore: 420, questsCompleted: 12, questDetail: [] } },
+    { member: { name: 'Mia', role: 'Member' }, result: { finalScore: 480, questsCompleted: 8, questDetail: [] } },
+  ]);
+
+  assert.equal(
+    JSON.stringify(rows.map(row => row.member.name)),
+    JSON.stringify(['Mia', 'Zoe', 'Ada']),
+  );
 });
 
 test('score comparison bar widths scale by score', () => {

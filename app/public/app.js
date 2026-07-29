@@ -13,6 +13,7 @@ const ui = {
     flowers: { key: 'points', dir: -1 },
     rivals: { key: 'score', dir: -1 },
     weekCompetitors: { key: 'placement', dir: 1 },
+    weekMemberResults: { key: 'name', dir: 1 },
     competitionRemaining: { key: 'name', dir: 1 },
   },
   search: { summary: '', members: '', flowers: '', rivals: '' },
@@ -1124,6 +1125,18 @@ function sortWeekCompetitorRows(rows, placements = new Map()) {
     (key === 'placement' ? cmp(b.score, a.score) : cmp(place(a), place(b))) ||
     cmp(a.name, b.name));
 }
+function sortWeekMemberResultRows(rows) {
+  const { key, dir } = ui.sort.weekMemberResults;
+  const val = row => ({
+    name: row.member.name,
+    role: ROLES.indexOf(row.member.role),
+    quests: row.result.questsCompleted,
+    score: row.result.finalScore,
+    average: memberAverageQuestScore(row.result),
+    detail: (row.result.questDetail || []).length,
+  })[key];
+  return [...rows].sort((a, b) => dir * cmp(val(a), val(b)) || cmp(a.member.name, b.member.name));
+}
 function scoreBarColor(i) {
   return ['#c95f7d', '#5f8a5e', '#5a78c9', '#c99a3a', '#8d63b8', '#d7784f', '#4b9d9a', '#b35f86', '#6f7f4f', '#7b78c9'][i % 10];
 }
@@ -1159,10 +1172,15 @@ function draftFor(memberId) {
   }
   return ui.weekDraft.results[memberId];
 }
+function draftForWeek(c, memberId) {
+  ensureWeekDraft(c);
+  return draftFor(memberId);
+}
 function isVisibleInput(el) {
   return Boolean(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
 }
-function syncWeekDraftFromInputs() {
+function syncWeekDraftFromInputs(c) {
+  if (c) ensureWeekDraft(c);
   document.querySelectorAll('[data-quests], [data-quests-mobile]').forEach(inp => {
     if (!isVisibleInput(inp)) return;
     const memberId = inp.dataset.quests || inp.dataset.questsMobile;
@@ -1271,6 +1289,10 @@ function renderWeekDetail(id) {
     .filter(m => m.active || withData.has(m.id))
     .sort((a, b) => cmp(a.name, b.name));
   const saved = new Map((c.memberResults || []).map(r => [r.memberId, r]));
+  const memberResultRows = sortWeekMemberResultRows(resultMembers.map(m => ({
+    member: m,
+    result: isAdmin() ? draftFor(m.id) : (saved.get(m.id) || {}),
+  })));
 
   app().innerHTML = chrome(`
     <a href="#/weeks" class="backlink">← Weeks</a>
@@ -1353,11 +1375,30 @@ function renderWeekDetail(id) {
 
     <div class="card">
       <h2 style="margin-top:0">Member results</h2>
-      ${resultMembers.length ? `
-        <div class="tablewrap desktop-only"><table class="member-results-table">
-          <thead><tr><th>Member</th><th>Quests</th><th>Score</th><th>Average quest score</th><th>Detail</th></tr></thead>
-          <tbody>${resultMembers.map(m => {
-            const d = isAdmin() ? draftFor(m.id) : (saved.get(m.id) || {});
+      ${memberResultRows.length ? `
+        <label class="mobile-only mobile-sort">Sort
+          <select id="weekmemberresultsort">
+            <option value="name:1" ${ui.sort.weekMemberResults.key === 'name' && ui.sort.weekMemberResults.dir === 1 ? 'selected' : ''}>Member A-Z</option>
+            <option value="name:-1" ${ui.sort.weekMemberResults.key === 'name' && ui.sort.weekMemberResults.dir === -1 ? 'selected' : ''}>Member Z-A</option>
+            <option value="quests:-1" ${ui.sort.weekMemberResults.key === 'quests' && ui.sort.weekMemberResults.dir === -1 ? 'selected' : ''}>Quests high-low</option>
+            <option value="quests:1" ${ui.sort.weekMemberResults.key === 'quests' && ui.sort.weekMemberResults.dir === 1 ? 'selected' : ''}>Quests low-high</option>
+            <option value="score:-1" ${ui.sort.weekMemberResults.key === 'score' && ui.sort.weekMemberResults.dir === -1 ? 'selected' : ''}>Score high-low</option>
+            <option value="score:1" ${ui.sort.weekMemberResults.key === 'score' && ui.sort.weekMemberResults.dir === 1 ? 'selected' : ''}>Score low-high</option>
+            <option value="average:-1" ${ui.sort.weekMemberResults.key === 'average' && ui.sort.weekMemberResults.dir === -1 ? 'selected' : ''}>Average quest score high-low</option>
+            <option value="average:1" ${ui.sort.weekMemberResults.key === 'average' && ui.sort.weekMemberResults.dir === 1 ? 'selected' : ''}>Average quest score low-high</option>
+          </select>
+        </label>
+        <div class="tablewrap desktop-only"><table class="member-results-table" data-sortview="weekMemberResults">
+          <thead><tr>
+            <th data-key="name" class="${sortArrow('weekMemberResults', 'name')}">Member</th>
+            <th data-key="quests" class="${sortArrow('weekMemberResults', 'quests')}">Quests</th>
+            <th data-key="score" class="${sortArrow('weekMemberResults', 'score')}">Score</th>
+            <th data-key="average" class="${sortArrow('weekMemberResults', 'average')}">Average quest score</th>
+            <th data-key="detail" class="${sortArrow('weekMemberResults', 'detail')}">Detail</th>
+          </tr></thead>
+          <tbody>${memberResultRows.map(row => {
+            const m = row.member;
+            const d = row.result;
             const detailCount = (d.questDetail || []).length;
             return `<tr>
               <td>${esc(m.name)}${m.active ? '' : ' <span class="muted small">(inactive)</span>'}</td>
@@ -1375,8 +1416,9 @@ function renderWeekDetail(id) {
           }).join('')}
           </tbody></table></div>
         <div class="mobilecards">
-          ${resultMembers.map(m => {
-            const d = isAdmin() ? draftFor(m.id) : (saved.get(m.id) || {});
+          ${memberResultRows.map(row => {
+            const m = row.member;
+            const d = row.result;
             const detailCount = (d.questDetail || []).length;
             return `
               <div class="mobilecard">
@@ -1422,9 +1464,19 @@ function renderWeekDetail(id) {
   `, '#/weeks');
   bindChrome();
   bindSortHeaders('weekCompetitors', () => renderWeekDetail(id));
+  bindSortHeaders('weekMemberResults', () => {
+    syncWeekDraftFromInputs(c);
+    renderWeekDetail(id);
+  });
   $('#weekresultsort')?.addEventListener('change', e => {
     const [key, dir] = e.target.value.split(':');
     ui.sort.weekCompetitors = { key, dir: Number(dir) };
+    renderWeekDetail(id);
+  });
+  $('#weekmemberresultsort')?.addEventListener('change', e => {
+    syncWeekDraftFromInputs(c);
+    const [key, dir] = e.target.value.split(':');
+    ui.sort.weekMemberResults = { key, dir: Number(dir) };
     renderWeekDetail(id);
   });
 
@@ -1447,25 +1499,25 @@ function renderWeekDetail(id) {
   // draft inputs update state only (no re-render → keyboard stays open)
   document.querySelectorAll('[data-quests]').forEach(inp =>
     inp.addEventListener('input', () => {
-      draftFor(inp.dataset.quests).questsCompleted = inp.value === '' ? null : Number(inp.value);
+      draftForWeek(c, inp.dataset.quests).questsCompleted = inp.value === '' ? null : Number(inp.value);
       refreshWeekResultSummary(c);
       refreshMemberAverage(inp.dataset.quests);
     }));
   document.querySelectorAll('[data-score]').forEach(inp =>
     inp.addEventListener('input', () => {
-      draftFor(inp.dataset.score).finalScore = inp.value === '' ? null : Number(inp.value);
+      draftForWeek(c, inp.dataset.score).finalScore = inp.value === '' ? null : Number(inp.value);
       refreshWeekResultSummary(c);
       refreshMemberAverage(inp.dataset.score);
     }));
   document.querySelectorAll('[data-quests-mobile]').forEach(inp =>
     inp.addEventListener('input', () => {
-      draftFor(inp.dataset.questsMobile).questsCompleted = inp.value === '' ? null : Number(inp.value);
+      draftForWeek(c, inp.dataset.questsMobile).questsCompleted = inp.value === '' ? null : Number(inp.value);
       refreshWeekResultSummary(c);
       refreshMemberAverage(inp.dataset.questsMobile);
     }));
   document.querySelectorAll('[data-score-mobile]').forEach(inp =>
     inp.addEventListener('input', () => {
-      draftFor(inp.dataset.scoreMobile).finalScore = inp.value === '' ? null : Number(inp.value);
+      draftForWeek(c, inp.dataset.scoreMobile).finalScore = inp.value === '' ? null : Number(inp.value);
       refreshWeekResultSummary(c);
       refreshMemberAverage(inp.dataset.scoreMobile);
     }));
@@ -1475,21 +1527,27 @@ function renderWeekDetail(id) {
     btn.addEventListener('click', () => questDetailDialog(c, btn.dataset.viewdetail, false)));
 
   $('#saveresults')?.addEventListener('click', async () => {
-    syncWeekDraftFromInputs();
+    syncWeekDraftFromInputs(c);
     const memberResults = mergedMemberResultsForSave(c);
     const score = memberResultsScoreSummary(memberResults);
     const body = score.hasScores
       ? { memberResults, ourScore: score.total, ...autoPlacementPatch(c, c.competitors || [], score.total) }
       : { memberResults };
-    const ok = await saveAndReload(
-      () => api(`/api/competitions/${c.id}`, 'PUT', body),
-      'Results saved');
-    if (ok) ui.weekDraft = { compId: null, results: {} };
+    try {
+      await api(`/api/competitions/${c.id}`, 'PUT', body);
+      await loadData();
+      ui.weekDraft = { compId: null, results: {} };
+      render();
+      toast('Results saved');
+    } catch (err) {
+      toast(err.message, true);
+    }
   });
 
   $('#exportcsv')?.addEventListener('click', () => {
     const rows = [['Member', 'Role', 'Quests completed', 'Final score', 'Average quest score']];
-    for (const m of resultMembers) {
+    for (const row of memberResultRows) {
+      const m = row.member;
       const r = saved.get(m.id);
       rows.push([m.name, m.role, r?.questsCompleted ?? '', r?.finalScore ?? '', memberAverageQuestScore(r) ?? '']);
     }
