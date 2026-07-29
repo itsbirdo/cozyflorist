@@ -178,6 +178,7 @@ nav.tabs a.active { color: var(--accent); }
 .mobilefield { display: grid; grid-template-columns: minmax(86px, auto) 1fr; gap: 8px; align-items: center; margin: 7px 0; }
 .mobilefield input { margin: 0; }
 table { border-collapse: collapse; width: 100%; font-size: .86rem; min-width: 480px; }
+.member-results-table { min-width: 620px; }
 th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
 td.wrap { white-space: normal; }
 th {

@@ -71,6 +71,21 @@ function esc(s) {
 const fmtNum = n => (n === null || n === undefined || n === '' ? '—' : Number(n).toLocaleString());
 const optNum = v => (v === null || v === undefined || v === '' ? null : (Number.isFinite(Number(v)) ? Number(v) : null));
 
+function memberAverageQuestScore(result) {
+  const score = optNum(result?.finalScore);
+  const quests = optNum(result?.questsCompleted);
+  if (score === null || quests === null || quests <= 0) return null;
+  return score / quests;
+}
+
+function fmtAverageQuestScore(result) {
+  const avg = memberAverageQuestScore(result);
+  if (avg === null) return '—';
+  return Number.isInteger(avg)
+    ? fmtNum(avg)
+    : avg.toLocaleString(undefined, { maximumFractionDigits: 1 });
+}
+
 function ordinal(n) {
   if (n === null || n === undefined || n === '') return '—';
   n = Number(n);
@@ -1210,6 +1225,10 @@ function refreshWeekResultSummary(c) {
   document.querySelectorAll('[data-week-our-score]').forEach(el => { el.textContent = fmtNum(score); });
   document.querySelectorAll('[data-week-our-place]').forEach(el => { el.textContent = ordinal(place); });
 }
+function refreshMemberAverage(memberId) {
+  document.querySelectorAll(`[data-average="${memberId}"], [data-average-mobile="${memberId}"]`)
+    .forEach(el => { el.textContent = fmtAverageQuestScore(draftFor(memberId)); });
+}
 
 function renderWeekDetail(id) {
   const c = state.data.competitions.find(x => x.id === id);
@@ -1318,8 +1337,8 @@ function renderWeekDetail(id) {
     <div class="card">
       <h2 style="margin-top:0">Member results</h2>
       ${resultMembers.length ? `
-        <div class="tablewrap desktop-only"><table>
-          <thead><tr><th>Member</th><th>Quests</th><th>Score</th><th>Detail</th></tr></thead>
+        <div class="tablewrap desktop-only"><table class="member-results-table">
+          <thead><tr><th>Member</th><th>Quests</th><th>Score</th><th>Average quest score</th><th>Detail</th></tr></thead>
           <tbody>${resultMembers.map(m => {
             const d = isAdmin() ? draftFor(m.id) : (saved.get(m.id) || {});
             const detailCount = (d.questDetail || []).length;
@@ -1331,6 +1350,7 @@ function renderWeekDetail(id) {
               <td>${isAdmin()
                 ? `<input type="number" inputmode="numeric" style="width:88px;margin:0;padding:6px" data-score="${m.id}" value="${d.finalScore ?? ''}">`
                 : fmtNum(d.finalScore)}</td>
+              <td data-average="${m.id}">${fmtAverageQuestScore(d)}</td>
               <td>${isAdmin()
                 ? `<button class="btn secondary small" data-detail="${m.id}">${detailCount ? detailCount + ' quests' : '+ quests'}</button>`
                 : (detailCount ? `<button class="btn secondary small" data-viewdetail="${m.id}">${detailCount} quests</button>` : '—')}</td>
@@ -1351,6 +1371,10 @@ function renderWeekDetail(id) {
                   <div class="metric">
                     <strong>${fmtNum(d.finalScore)}</strong>
                     <div class="muted small">score</div>
+                  </div>
+                  <div class="metric">
+                    <strong data-average-mobile="${m.id}">${fmtAverageQuestScore(d)}</strong>
+                    <div class="muted small">avg quest</div>
                   </div>
                 </div>
                 ${isAdmin() ? `
@@ -1408,21 +1432,25 @@ function renderWeekDetail(id) {
     inp.addEventListener('input', () => {
       draftFor(inp.dataset.quests).questsCompleted = inp.value === '' ? null : Number(inp.value);
       refreshWeekResultSummary(c);
+      refreshMemberAverage(inp.dataset.quests);
     }));
   document.querySelectorAll('[data-score]').forEach(inp =>
     inp.addEventListener('input', () => {
       draftFor(inp.dataset.score).finalScore = inp.value === '' ? null : Number(inp.value);
       refreshWeekResultSummary(c);
+      refreshMemberAverage(inp.dataset.score);
     }));
   document.querySelectorAll('[data-quests-mobile]').forEach(inp =>
     inp.addEventListener('input', () => {
       draftFor(inp.dataset.questsMobile).questsCompleted = inp.value === '' ? null : Number(inp.value);
       refreshWeekResultSummary(c);
+      refreshMemberAverage(inp.dataset.questsMobile);
     }));
   document.querySelectorAll('[data-score-mobile]').forEach(inp =>
     inp.addEventListener('input', () => {
       draftFor(inp.dataset.scoreMobile).finalScore = inp.value === '' ? null : Number(inp.value);
       refreshWeekResultSummary(c);
+      refreshMemberAverage(inp.dataset.scoreMobile);
     }));
   document.querySelectorAll('[data-detail]').forEach(btn =>
     btn.addEventListener('click', () => questDetailDialog(c, btn.dataset.detail, true)));
@@ -1443,10 +1471,10 @@ function renderWeekDetail(id) {
   });
 
   $('#exportcsv')?.addEventListener('click', () => {
-    const rows = [['Member', 'Role', 'Quests completed', 'Final score']];
+    const rows = [['Member', 'Role', 'Quests completed', 'Final score', 'Average quest score']];
     for (const m of resultMembers) {
       const r = saved.get(m.id);
-      rows.push([m.name, m.role, r?.questsCompleted ?? '', r?.finalScore ?? '']);
+      rows.push([m.name, m.role, r?.questsCompleted ?? '', r?.finalScore ?? '', memberAverageQuestScore(r) ?? '']);
     }
     rows.push([]);
     rows.push(['Our guild score', c.ourScore ?? '', 'Placement', c.ourPlacement ?? '']);

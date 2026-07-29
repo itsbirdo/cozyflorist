@@ -37,6 +37,8 @@ globalThis.__guildHq = {
   guildRankText,
   competitorRankTitle,
   bestPotentialFlower,
+  memberAverageQuestScore,
+  fmtAverageQuestScore,
   memberResultsScoreSummary,
   currentCompetitionSummary,
   sortedCompetitionRemainingRows,
@@ -260,6 +262,15 @@ test('week score tally sums saved and draft member scores', () => {
   const summary = memberResultsScoreSummary(mergedMemberResultsForSave(state.data.competitions[0]));
   assert.equal(summary.hasScores, true);
   assert.equal(summary.total, 333);
+});
+
+test('member result average quest score divides score by quest count', () => {
+  const { memberAverageQuestScore, fmtAverageQuestScore } = loadApp();
+
+  assert.equal(memberAverageQuestScore({ finalScore: 448, questsCompleted: 8 }), 56);
+  assert.equal(fmtAverageQuestScore({ finalScore: 425, questsCompleted: 8 }), '53.1');
+  assert.equal(fmtAverageQuestScore({ finalScore: 60, questsCompleted: 0 }), '—');
+  assert.equal(fmtAverageQuestScore({ finalScore: null, questsCompleted: 3 }), '—');
 });
 
 test('current competition summary totals saved member quests and remaining quests', () => {
