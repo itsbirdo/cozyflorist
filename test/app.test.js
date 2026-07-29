@@ -324,3 +324,21 @@ test('score comparison includes our guild with rival guilds', () => {
     ['r2', 'Magnolia', false, 5400],
   ]);
 });
+
+test('score comparison keeps our guild row before member scores are entered', () => {
+  const { state, scoreComparisonEntries, weeklyPlacementMap } = loadApp();
+  state.data = fullData({ settings: { guildName: 'Bloomhaven' } });
+  const c = {
+    ourRankTitle: 'A-Rank Guild',
+    ourPlacement: null,
+    competitors: [
+      { id: 'r1', name: 'Hyacinth', score: 7816, placement: null },
+    ],
+  };
+  const placements = weeklyPlacementMap(c, null);
+  const rows = scoreComparisonEntries(c, null, placements);
+  const ourRow = rows.find(r => r.ours);
+
+  assert.equal(ourRow.name, 'Bloomhaven');
+  assert.equal(ourRow.score, null);
+});

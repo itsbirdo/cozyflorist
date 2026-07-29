@@ -1076,7 +1076,7 @@ function scoreComparisonEntries(c, ourScore, placements) {
     ...(c.competitors || []).map(r => ({ ...r, ours: false })),
   ];
   return rows
-    .filter(e => e.score !== null && e.score !== undefined)
+    .filter(e => e.ours || e.score !== null && e.score !== undefined)
     .sort((a, b) => cmp(placements.get(a.id), placements.get(b.id)) || cmp(b.score, a.score) || cmp(a.name, b.name));
 }
 
@@ -1127,9 +1127,12 @@ function currentWeekOurScore(c) {
   const score = memberResultsScoreSummary(mergedMemberResultsForSave(c));
   return score.hasScores ? score.total : c.ourScore;
 }
-function refreshWeekScoreTotal(c) {
+function refreshWeekResultSummary(c) {
   const score = currentWeekOurScore(c);
+  const placements = weeklyPlacementMap(c, score);
+  const place = placements.get('ours') ?? c.ourPlacement;
   document.querySelectorAll('[data-week-our-score]').forEach(el => { el.textContent = fmtNum(score); });
+  document.querySelectorAll('[data-week-our-place]').forEach(el => { el.textContent = ordinal(place); });
 }
 
 function renderWeekDetail(id) {
@@ -1164,7 +1167,7 @@ function renderWeekDetail(id) {
     <div class="card">
       <h2 style="margin-top:0">Our result</h2>
       <p>Score <strong data-week-our-score>${fmtNum(displayOurScore)}</strong>
-        · Placement <strong>${ordinal(placements.get('ours') ?? c.ourPlacement)}</strong>
+        · Placement <strong data-week-our-place>${ordinal(placements.get('ours') ?? c.ourPlacement)}</strong>
         ${guildRankText()}
         ${c.ourRankTitle ? `· ${esc(c.ourRankTitle)}` : ''}</p>
       ${c.notes ? `<p class="muted" style="white-space:pre-wrap">${esc(c.notes)}</p>` : ''}
@@ -1179,10 +1182,10 @@ function renderWeekDetail(id) {
         <div class="scoregraph">
         ${entries.map((e, i) => `
           <div class="bar ${e.ours ? 'ours' : ''}">
-            <span class="place">${ordinal(placements.get(e.id))}</span>
+            <span class="place" ${e.ours ? 'data-week-our-place' : ''}>${ordinal(placements.get(e.id) ?? e.placement)}</span>
             <span class="name">${esc(e.name)}${e.ours ? ' <span class="chip">Our guild</span>' : ''}</span>
             <span class="track"><span class="fill" style="width:${scoreBarWidth(e.score, maxScore)}%;background:${scoreBarColor(i)}"></span></span>
-            <span class="val">${fmtNum(e.score)}</span>
+            <span class="val" ${e.ours ? 'data-week-our-score' : ''}>${fmtNum(e.score)}</span>
           </div>`).join('')}
         </div>`
         : '<p class="muted">Enter scores in Results or Member results to draw the comparison graph.</p>'}
@@ -1210,7 +1213,7 @@ function renderWeekDetail(id) {
           ${sortWeekCompetitorRows(allCompetitors, placements).map(r => `
           <tr class="${r.ours ? 'highlight' : (isAdmin() ? 'rowlink' : '')}" ${r.ours ? '' : `data-rival="${r.id}"`}>
             <td>${esc(r.name)}</td><td ${r.ours ? 'data-week-our-score' : ''}>${fmtNum(r.score)}</td>
-            <td>${esc(competitorRankTitle(r))}</td><td>${ordinal(placements.get(r.id) ?? r.placement)}</td>
+            <td>${esc(competitorRankTitle(r))}</td><td ${r.ours ? 'data-week-our-place' : ''}>${ordinal(placements.get(r.id) ?? r.placement)}</td>
           </tr>`).join('')}
         </tbody></table></div>
       <div class="mobilecards">
@@ -1222,12 +1225,12 @@ function renderWeekDetail(id) {
                 <div class="muted small">${esc(competitorRankTitle(r, 'No rank logged'))}</div>
               </div>
               <div class="metric">
-                <strong>${ordinal(placements.get(r.id) ?? r.placement)}</strong>
+                <strong ${r.ours ? 'data-week-our-place' : ''}>${ordinal(placements.get(r.id) ?? r.placement)}</strong>
                 <div class="muted small">place</div>
               </div>
             </div>
             <div class="section">
-              <span class="chip rose">Score ${fmtNum(r.score)}</span>
+              <span class="chip rose">Score <span ${r.ours ? 'data-week-our-score' : ''}>${fmtNum(r.score)}</span></span>
               ${r.ours ? '<span class="chip">Our guild</span>' : ''}
             </div>
           </div>`).join('')}
@@ -1328,22 +1331,22 @@ function renderWeekDetail(id) {
   document.querySelectorAll('[data-quests]').forEach(inp =>
     inp.addEventListener('input', () => {
       draftFor(inp.dataset.quests).questsCompleted = inp.value === '' ? null : Number(inp.value);
-      refreshWeekScoreTotal(c);
+      refreshWeekResultSummary(c);
     }));
   document.querySelectorAll('[data-score]').forEach(inp =>
     inp.addEventListener('input', () => {
       draftFor(inp.dataset.score).finalScore = inp.value === '' ? null : Number(inp.value);
-      refreshWeekScoreTotal(c);
+      refreshWeekResultSummary(c);
     }));
   document.querySelectorAll('[data-quests-mobile]').forEach(inp =>
     inp.addEventListener('input', () => {
       draftFor(inp.dataset.questsMobile).questsCompleted = inp.value === '' ? null : Number(inp.value);
-      refreshWeekScoreTotal(c);
+      refreshWeekResultSummary(c);
     }));
   document.querySelectorAll('[data-score-mobile]').forEach(inp =>
     inp.addEventListener('input', () => {
       draftFor(inp.dataset.scoreMobile).finalScore = inp.value === '' ? null : Number(inp.value);
-      refreshWeekScoreTotal(c);
+      refreshWeekResultSummary(c);
     }));
   document.querySelectorAll('[data-detail]').forEach(btn =>
     btn.addEventListener('click', () => questDetailDialog(c, btn.dataset.detail, true)));
