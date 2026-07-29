@@ -38,6 +38,7 @@ globalThis.__guildHq = {
   competitorRankTitle,
   bestPotentialFlower,
   memberResultsScoreSummary,
+  currentCompetitionSummary,
   weeklyPlacementMap,
   autoPlacementPatch,
   scoreBarWidth,
@@ -258,6 +259,30 @@ test('week score tally sums saved and draft member scores', () => {
   const summary = memberResultsScoreSummary(mergedMemberResultsForSave(state.data.competitions[0]));
   assert.equal(summary.hasScores, true);
   assert.equal(summary.total, 333);
+});
+
+test('current competition summary totals saved member quests and remaining quests', () => {
+  const { state, currentCompetitionSummary } = loadApp();
+  state.data = fullData({
+    settings: { questsMax: 24 },
+    members: [
+      { id: 'm1', name: 'Ada', active: true, role: 'Member', questCount: 18, flowerIds: [], flowerBonuses: {} },
+      { id: 'm2', name: 'Zoe', active: true, role: 'Member', questCount: 18, flowerIds: [], flowerBonuses: {} },
+      { id: 'm3', name: 'Mia', active: false, role: 'Member', questCount: 18, flowerIds: [], flowerBonuses: {} },
+    ],
+  });
+  const summary = currentCompetitionSummary({
+    ourScore: 999,
+    memberResults: [
+      { memberId: 'm1', finalScore: 111, questsCompleted: 12, questDetail: [] },
+      { memberId: 'm2', finalScore: 222, questsCompleted: 24, questDetail: [] },
+      { memberId: 'm3', finalScore: 333, questsCompleted: 4, questDetail: [] },
+    ],
+  });
+
+  assert.equal(summary.questsCompleted, 36);
+  assert.equal(summary.score, 666);
+  assert.deepEqual(summary.remaining.map(row => [row.member.name, row.remaining]), [['Ada', 12]]);
 });
 
 test('weekly placements are calculated from scores with competition ranking', () => {

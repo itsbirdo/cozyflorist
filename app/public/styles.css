@@ -105,6 +105,17 @@ nav.tabs a.active { color: var(--accent); }
 }
 .chip.rose { background: var(--accent-soft); color: var(--accent); }
 .chip button { all: unset; cursor: pointer; font-weight: 800; padding: 0 2px; }
+.competition-stats {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px; margin: 10px 0;
+}
+.competition-stats div {
+  border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 10px; background: var(--bg);
+}
+.competition-stats strong { display: block; font-size: 1.3rem; font-variant-numeric: tabular-nums; }
+.competition-stats span { color: var(--muted); font-size: .74rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+.remaining-list { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0 10px; }
 
 .flowerlist { display: grid; gap: 5px; align-items: start; min-width: 240px; }
 .flowerpill {

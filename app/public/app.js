@@ -350,14 +350,26 @@ function renderDashboard() {
   if (latest) {
     const rivals = [...(latest.competitors || [])].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
     const top = rivals[0];
+    const comp = currentCompetitionSummary(latest);
     latestCard = `
       <div class="card">
-        <h2 style="margin-top:0">Latest week · ${esc(weekLabel(latest))}</h2>
-        <p>Our score: <strong>${fmtNum(latest.ourScore)}</strong>
-           · Placement: <strong>${ordinal(latest.ourPlacement)}</strong>
+        <h2 style="margin-top:0">Current Competition</h2>
+        <p class="muted small">${esc(weekLabel(latest))}</p>
+        <div class="competition-stats">
+          <div><strong>${fmtNum(comp.questsCompleted)}</strong><span>Quests completed</span></div>
+          <div><strong>${fmtNum(comp.score)}</strong><span>Score</span></div>
+          <div><strong>${comp.remaining.length}</strong><span>Members with quests left</span></div>
+        </div>
+        <p>Placement: <strong>${ordinal(latest.ourPlacement)}</strong>
            ${guildRankText()}
            ${latest.ourRankTitle ? `· ${esc(latest.ourRankTitle)}` : ''}</p>
         ${top ? `<p class="muted">Top rival: ${esc(top.name)} (${fmtNum(top.score)})</p>` : ''}
+        <h3>Quests remaining</h3>
+        ${comp.remaining.length ? `
+          <div class="remaining-list">
+            ${comp.remaining.map(row => `<span class="chip">${esc(row.member.name)} ${row.remaining}</span>`).join('')}
+          </div>`
+          : '<p class="muted">All active members have completed their weekly quests.</p>'}
         <a href="#/weeks/${latest.id}" class="backlink">Open week →</a>
       </div>`;
   }
@@ -1137,6 +1149,27 @@ function mergedMemberResultsForSave(c) {
 function memberResultsScoreSummary(memberResults) {
   const scores = memberResults.map(r => r.finalScore).filter(v => v !== null && v !== undefined);
   return { hasScores: scores.length > 0, total: scores.reduce((sum, score) => sum + Number(score || 0), 0) };
+}
+function currentCompetitionSummary(c) {
+  const target = state.data.settings.questsMax || 24;
+  const results = new Map((c.memberResults || []).map(r => [r.memberId, r]));
+  const resultScore = memberResultsScoreSummary(c.memberResults || []);
+  const members = state.data.members
+    .filter(m => m.active)
+    .sort((a, b) => cmp(a.name, b.name));
+  const remaining = members
+    .map(m => {
+      const completed = Math.max(0, optNum(results.get(m.id)?.questsCompleted) ?? 0);
+      return { member: m, completed, remaining: Math.max(0, target - completed) };
+    })
+    .filter(row => row.remaining > 0);
+
+  return {
+    target,
+    questsCompleted: members.reduce((sum, m) => sum + Math.max(0, optNum(results.get(m.id)?.questsCompleted) ?? 0), 0),
+    score: resultScore.hasScores ? resultScore.total : c.ourScore,
+    remaining,
+  };
 }
 function currentWeekOurScore(c) {
   const score = memberResultsScoreSummary(mergedMemberResultsForSave(c));
