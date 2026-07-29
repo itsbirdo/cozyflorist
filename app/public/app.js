@@ -1070,6 +1070,15 @@ function scoreBarWidth(score, maxScore) {
   if (!Number.isFinite(score) || score <= 0 || !Number.isFinite(maxScore) || maxScore <= 0) return 0;
   return Math.max(3, Math.round(100 * score / maxScore));
 }
+function scoreComparisonEntries(c, ourScore, placements) {
+  const rows = [
+    { id: 'ours', name: state.data.settings.guildName, score: ourScore, rankTitle: c.ourRankTitle, placement: c.ourPlacement, ours: true },
+    ...(c.competitors || []).map(r => ({ ...r, ours: false })),
+  ];
+  return rows
+    .filter(e => e.score !== null && e.score !== undefined)
+    .sort((a, b) => cmp(placements.get(a.id), placements.get(b.id)) || cmp(b.score, a.score) || cmp(a.name, b.name));
+}
 
 function ensureWeekDraft(c) {
   if (ui.weekDraft.compId === c.id) return;
@@ -1135,9 +1144,7 @@ function renderWeekDetail(id) {
     { id: 'ours', name: state.data.settings.guildName, score: displayOurScore, rankTitle: c.ourRankTitle, placement: c.ourPlacement, ours: true },
     ...(c.competitors || []).map(r => ({ ...r, ours: false })),
   ];
-  const entries = allCompetitors
-    .filter(e => e.score !== null && e.score !== undefined)
-    .sort((a, b) => cmp(placements.get(a.id), placements.get(b.id)) || cmp(b.score, a.score) || cmp(a.name, b.name));
+  const entries = scoreComparisonEntries(c, displayOurScore, placements);
   const maxScore = Math.max(1, ...entries.map(e => e.score));
 
   // member results: active members plus anyone with a saved/draft result
@@ -1173,7 +1180,7 @@ function renderWeekDetail(id) {
         ${entries.map((e, i) => `
           <div class="bar ${e.ours ? 'ours' : ''}">
             <span class="place">${ordinal(placements.get(e.id))}</span>
-            <span class="name">${esc(e.name)}</span>
+            <span class="name">${esc(e.name)}${e.ours ? ' <span class="chip">Our guild</span>' : ''}</span>
             <span class="track"><span class="fill" style="width:${scoreBarWidth(e.score, maxScore)}%;background:${scoreBarColor(i)}"></span></span>
             <span class="val">${fmtNum(e.score)}</span>
           </div>`).join('')}

@@ -41,6 +41,7 @@ globalThis.__guildHq = {
   weeklyPlacementMap,
   autoPlacementPatch,
   scoreBarWidth,
+  scoreComparisonEntries,
 };
 `);
   assert.notEqual(patched, script, 'test loader should replace browser boot code');
@@ -300,4 +301,26 @@ test('score comparison bar widths scale by score', () => {
   assert.equal(scoreBarWidth(12000, 20000), 60);
   assert.equal(scoreBarWidth(4700, 20000), 24);
   assert.equal(scoreBarWidth(0, 20000), 0);
+});
+
+test('score comparison includes our guild with rival guilds', () => {
+  const { state, scoreComparisonEntries, weeklyPlacementMap } = loadApp();
+  state.data = fullData({ settings: { guildName: 'Cozy Florist' } });
+  const c = {
+    ourRankTitle: '',
+    ourPlacement: null,
+    competitors: [
+      { id: 'r1', name: 'Hyacinth', score: 7816, placement: null },
+      { id: 'r2', name: 'Magnolia', score: 5400, placement: null },
+    ],
+  };
+  const placements = weeklyPlacementMap(c, 6000);
+  const rows = scoreComparisonEntries(c, 6000, placements);
+
+  const summary = JSON.parse(JSON.stringify(rows.map(r => [r.id, r.name, r.ours, r.score])));
+  assert.deepEqual(summary, [
+    ['r1', 'Hyacinth', false, 7816],
+    ['ours', 'Cozy Florist', true, 6000],
+    ['r2', 'Magnolia', false, 5400],
+  ]);
 });
