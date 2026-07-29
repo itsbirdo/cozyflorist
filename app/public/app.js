@@ -13,6 +13,7 @@ const ui = {
     flowers: { key: 'points', dir: -1 },
     rivals: { key: 'score', dir: -1 },
     weekCompetitors: { key: 'placement', dir: 1 },
+    competitionRemaining: { key: 'name', dir: 1 },
   },
   search: { summary: '', members: '', flowers: '', rivals: '' },
   filters: { summaryFlower: '', membersRole: '', showInactive: false, flowersRarity: '' },
@@ -351,6 +352,7 @@ function renderDashboard() {
     const rivals = [...(latest.competitors || [])].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
     const top = rivals[0];
     const comp = currentCompetitionSummary(latest);
+    const remainingRows = sortedCompetitionRemainingRows(comp.remaining);
     latestCard = `
       <div class="card">
         <h2 style="margin-top:0">Current Competition</h2>
@@ -364,10 +366,26 @@ function renderDashboard() {
            ${guildRankText()}
            ${latest.ourRankTitle ? `· ${esc(latest.ourRankTitle)}` : ''}</p>
         ${top ? `<p class="muted">Top rival: ${esc(top.name)} (${fmtNum(top.score)})</p>` : ''}
-        <h3>Quests remaining</h3>
+        <div class="section-head">
+          <h3>Quests remaining</h3>
+          ${comp.remaining.length ? `
+            <label>Sort
+              <select id="remaining-sort">
+                <option value="name:1" ${ui.sort.competitionRemaining.key === 'name' && ui.sort.competitionRemaining.dir === 1 ? 'selected' : ''}>Name A-Z</option>
+                <option value="name:-1" ${ui.sort.competitionRemaining.key === 'name' && ui.sort.competitionRemaining.dir === -1 ? 'selected' : ''}>Name Z-A</option>
+                <option value="remaining:1" ${ui.sort.competitionRemaining.key === 'remaining' && ui.sort.competitionRemaining.dir === 1 ? 'selected' : ''}>Quests left low-high</option>
+                <option value="remaining:-1" ${ui.sort.competitionRemaining.key === 'remaining' && ui.sort.competitionRemaining.dir === -1 ? 'selected' : ''}>Quests left high-low</option>
+              </select>
+            </label>` : ''}
+        </div>
         ${comp.remaining.length ? `
           <div class="remaining-list">
-            ${comp.remaining.map(row => `<span class="chip">${esc(row.member.name)} ${row.remaining}</span>`).join('')}
+            ${remainingRows.map(row => `
+              <div class="remaining-member">
+                ${roleTag(row.member.role || 'Member')}
+                <strong>${esc(row.member.name)}</strong>
+                <span>${row.remaining} left</span>
+              </div>`).join('')}
           </div>`
           : '<p class="muted">All active members have completed their weekly quests.</p>'}
         <a href="#/weeks/${latest.id}" class="backlink">Open week →</a>
@@ -414,6 +432,11 @@ function renderDashboard() {
     </div>
   `, '#/dashboard');
   bindChrome();
+  $('#remaining-sort')?.addEventListener('change', e => {
+    const [key, dir] = e.target.value.split(':');
+    ui.sort.competitionRemaining = { key, dir: Number(dir) };
+    renderDashboard();
+  });
 }
 
 // ---------------------------------------------------------------- members --
@@ -1170,6 +1193,11 @@ function currentCompetitionSummary(c) {
     score: resultScore.hasScores ? resultScore.total : c.ourScore,
     remaining,
   };
+}
+function sortedCompetitionRemainingRows(rows) {
+  const { key, dir } = ui.sort.competitionRemaining;
+  const val = row => key === 'remaining' ? row.remaining : row.member.name;
+  return [...rows].sort((a, b) => dir * cmp(val(a), val(b)) || cmp(a.member.name, b.member.name));
 }
 function currentWeekOurScore(c) {
   const score = memberResultsScoreSummary(mergedMemberResultsForSave(c));

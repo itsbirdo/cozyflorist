@@ -115,7 +115,18 @@ nav.tabs a.active { color: var(--accent); }
 }
 .competition-stats strong { display: block; font-size: 1.3rem; font-variant-numeric: tabular-nums; }
 .competition-stats span { color: var(--muted); font-size: .74rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
-.remaining-list { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0 10px; }
+.section-head { display: flex; align-items: end; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.section-head h3 { margin-bottom: 4px; }
+.section-head label { margin: 0; min-width: 180px; }
+.section-head select { margin: 3px 0 0; padding: 7px 10px; }
+.remaining-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 7px; margin: 6px 0 10px; }
+.remaining-member {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center; gap: 7px; border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 7px 9px; background: var(--bg);
+}
+.remaining-member strong { min-width: 0; overflow-wrap: anywhere; }
+.remaining-member span:last-child { color: var(--muted); font-size: .8rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 
 .flowerlist { display: grid; gap: 5px; align-items: start; min-width: 240px; }
 .flowerpill {

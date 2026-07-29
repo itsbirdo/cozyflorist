@@ -39,6 +39,7 @@ globalThis.__guildHq = {
   bestPotentialFlower,
   memberResultsScoreSummary,
   currentCompetitionSummary,
+  sortedCompetitionRemainingRows,
   weeklyPlacementMap,
   autoPlacementPatch,
   scoreBarWidth,
@@ -283,6 +284,31 @@ test('current competition summary totals saved member quests and remaining quest
   assert.equal(summary.questsCompleted, 36);
   assert.equal(summary.score, 666);
   assert.deepEqual(summary.remaining.map(row => [row.member.name, row.remaining]), [['Ada', 12]]);
+});
+
+test('current competition remaining list sorts by name or quests left', () => {
+  const { ui, sortedCompetitionRemainingRows } = loadApp();
+  const rows = [
+    { member: { name: 'Zoe' }, remaining: 4 },
+    { member: { name: 'Ada' }, remaining: 12 },
+    { member: { name: 'Mia' }, remaining: 12 },
+  ];
+
+  ui.sort.competitionRemaining = { key: 'name', dir: 1 };
+  assert.equal(
+    JSON.stringify(sortedCompetitionRemainingRows(rows).map(row => row.member.name)),
+    JSON.stringify(['Ada', 'Mia', 'Zoe']),
+  );
+
+  ui.sort.competitionRemaining = { key: 'remaining', dir: -1 };
+  assert.equal(
+    JSON.stringify(sortedCompetitionRemainingRows(rows).map(row => [row.member.name, row.remaining])),
+    JSON.stringify([
+      ['Ada', 12],
+      ['Mia', 12],
+      ['Zoe', 4],
+    ]),
+  );
 });
 
 test('weekly placements are calculated from scores with competition ranking', () => {
