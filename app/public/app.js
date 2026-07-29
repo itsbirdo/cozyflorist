@@ -1098,6 +1098,21 @@ function draftFor(memberId) {
   }
   return ui.weekDraft.results[memberId];
 }
+function isVisibleInput(el) {
+  return Boolean(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+}
+function syncWeekDraftFromInputs() {
+  document.querySelectorAll('[data-quests], [data-quests-mobile]').forEach(inp => {
+    if (!isVisibleInput(inp)) return;
+    const memberId = inp.dataset.quests || inp.dataset.questsMobile;
+    draftFor(memberId).questsCompleted = inp.value === '' ? null : Number(inp.value);
+  });
+  document.querySelectorAll('[data-score], [data-score-mobile]').forEach(inp => {
+    if (!isVisibleInput(inp)) return;
+    const memberId = inp.dataset.score || inp.dataset.scoreMobile;
+    draftFor(memberId).finalScore = inp.value === '' ? null : Number(inp.value);
+  });
+}
 function hasMemberResultData(r) {
   return r && (r.finalScore != null || r.questsCompleted != null || (r.questDetail || []).length);
 }
@@ -1354,6 +1369,7 @@ function renderWeekDetail(id) {
     btn.addEventListener('click', () => questDetailDialog(c, btn.dataset.viewdetail, false)));
 
   $('#saveresults')?.addEventListener('click', async () => {
+    syncWeekDraftFromInputs();
     const memberResults = mergedMemberResultsForSave(c);
     const score = memberResultsScoreSummary(memberResults);
     const body = score.hasScores

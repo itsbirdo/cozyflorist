@@ -17,7 +17,7 @@ const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'guild.json');
 const BACKUP_DIR = path.join(DATA_DIR, 'backups');
 const SECRET_FILE = path.join(DATA_DIR, '.session-secret');
-const BACKUPS_TO_KEEP = 14;
+const BACKUPS_TO_KEEP = 50;
 
 // ---------------------------------------------------------------- config ---
 
@@ -118,7 +118,7 @@ function save() {
   saveTimer = setTimeout(() => {
     saveTimer = null;
     try {
-      dailyBackup();
+      backupCurrentData();
       const tmp = DATA_FILE + '.tmp';
       fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
       fs.renameSync(tmp, DATA_FILE);
@@ -128,11 +128,10 @@ function save() {
   }, 150);
 }
 
-function dailyBackup() {
+function backupCurrentData() {
   if (!fs.existsSync(DATA_FILE)) return;
-  const stamp = new Date().toISOString().slice(0, 10);
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   const dest = path.join(BACKUP_DIR, `guild-${stamp}.json`);
-  if (fs.existsSync(dest)) return; // one backup per day, taken before the day's first write
   try {
     fs.copyFileSync(DATA_FILE, dest);
     const old = fs.readdirSync(BACKUP_DIR).filter(f => f.startsWith('guild-')).sort();
