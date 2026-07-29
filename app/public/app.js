@@ -254,7 +254,7 @@ function bindSortHeaders(view, rerender) {
         s.dir = view === 'weekCompetitors' && key === 'placement' ? 1 : -s.dir;
       } else {
         s.key = key;
-        s.dir = (key === 'score' || key === 'potential' || key === 'flowers' || key === 'topFlower' || key === 'date') ? -1 : 1;
+        s.dir = (key === 'score' || key === 'potential' || key === 'flowers' || key === 'topFlower' || key === 'date' || key === 'average') ? -1 : 1;
       }
       rerender();
     });
@@ -383,10 +383,23 @@ function renderDashboard() {
         ${top ? `<p class="muted">Top rival: ${esc(top.name)} (${fmtNum(top.score)})</p>` : ''}
         <h3>Quests remaining</h3>
         ${comp.remaining.length ? `
-          <div class="tablewrap remaining-table-wrap"><table class="remaining-table">
+          <label class="mobile-only mobile-sort">Sort
+            <select id="competitionremainingsort">
+              <option value="name:1" ${ui.sort.competitionRemaining.key === 'name' && ui.sort.competitionRemaining.dir === 1 ? 'selected' : ''}>Member A-Z</option>
+              <option value="name:-1" ${ui.sort.competitionRemaining.key === 'name' && ui.sort.competitionRemaining.dir === -1 ? 'selected' : ''}>Member Z-A</option>
+              <option value="completed:-1" ${ui.sort.competitionRemaining.key === 'completed' && ui.sort.competitionRemaining.dir === -1 ? 'selected' : ''}>Quests completed high-low</option>
+              <option value="completed:1" ${ui.sort.competitionRemaining.key === 'completed' && ui.sort.competitionRemaining.dir === 1 ? 'selected' : ''}>Quests completed low-high</option>
+              <option value="remaining:1" ${ui.sort.competitionRemaining.key === 'remaining' && ui.sort.competitionRemaining.dir === 1 ? 'selected' : ''}>Quests left low-high</option>
+              <option value="remaining:-1" ${ui.sort.competitionRemaining.key === 'remaining' && ui.sort.competitionRemaining.dir === -1 ? 'selected' : ''}>Quests left high-low</option>
+              <option value="average:-1" ${ui.sort.competitionRemaining.key === 'average' && ui.sort.competitionRemaining.dir === -1 ? 'selected' : ''}>Average score high-low</option>
+              <option value="average:1" ${ui.sort.competitionRemaining.key === 'average' && ui.sort.competitionRemaining.dir === 1 ? 'selected' : ''}>Average score low-high</option>
+            </select>
+          </label>
+          <div class="tablewrap remaining-table-wrap"><table class="remaining-table" data-sortview="competitionRemaining">
             <thead><tr>
               <th data-key="name" class="${sortArrow('competitionRemaining', 'name')}">Member</th>
               <th data-key="completed" class="${sortArrow('competitionRemaining', 'completed')}">Quests completed</th>
+              <th data-key="average" class="${sortArrow('competitionRemaining', 'average')}">Average quest score</th>
               <th data-key="remaining" class="${sortArrow('competitionRemaining', 'remaining')}">Quests left</th>
             </tr></thead>
             <tbody>
@@ -394,6 +407,7 @@ function renderDashboard() {
                 <tr>
                   <td><strong>${esc(row.member.name)}</strong><br>${roleTag(row.member.role || 'Member')}<br>${floristRankTag(memberPotential(row.member))}</td>
                   <td>${row.completed}</td>
+                  <td>${fmtAverageQuestScore(row.result)}</td>
                   <td><strong>${row.remaining}</strong></td>
                 </tr>`).join('')}
             </tbody>
@@ -444,6 +458,11 @@ function renderDashboard() {
   `, '#/dashboard');
   bindChrome();
   bindSortHeaders('competitionRemaining', renderDashboard);
+  $('#competitionremainingsort')?.addEventListener('change', e => {
+    const [key, dir] = e.target.value.split(':');
+    ui.sort.competitionRemaining = { key, dir: Number(dir) };
+    renderDashboard();
+  });
 }
 
 // ---------------------------------------------------------------- members --
@@ -1189,8 +1208,9 @@ function currentCompetitionSummary(c) {
     .sort((a, b) => cmp(a.name, b.name));
   const remaining = members
     .map(m => {
-      const completed = Math.max(0, optNum(results.get(m.id)?.questsCompleted) ?? 0);
-      return { member: m, completed, remaining: Math.max(0, target - completed) };
+      const result = results.get(m.id) || {};
+      const completed = Math.max(0, optNum(result.questsCompleted) ?? 0);
+      return { member: m, result, completed, remaining: Math.max(0, target - completed) };
     })
     .filter(row => row.remaining > 0);
 
@@ -1206,6 +1226,7 @@ function sortedCompetitionRemainingRows(rows) {
   const val = row => ({
     name: row.member.name,
     completed: row.completed,
+    average: memberAverageQuestScore(row.result),
     remaining: row.remaining,
   })[key];
   return [...rows].sort((a, b) => dir * cmp(val(a), val(b)) || cmp(a.member.name, b.member.name));

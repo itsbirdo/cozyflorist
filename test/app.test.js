@@ -294,15 +294,15 @@ test('current competition summary totals saved member quests and remaining quest
 
   assert.equal(summary.questsCompleted, 36);
   assert.equal(summary.score, 666);
-  assert.deepEqual(summary.remaining.map(row => [row.member.name, row.remaining]), [['Ada', 12]]);
+  assert.deepEqual(summary.remaining.map(row => [row.member.name, row.remaining, row.result.finalScore]), [['Ada', 12, 111]]);
 });
 
-test('current competition remaining list sorts by name or quests left', () => {
+test('current competition remaining list sorts by name, quests, or average score', () => {
   const { ui, sortedCompetitionRemainingRows } = loadApp();
   const rows = [
-    { member: { name: 'Zoe' }, completed: 20, remaining: 4 },
-    { member: { name: 'Ada' }, completed: 12, remaining: 12 },
-    { member: { name: 'Mia' }, completed: 8, remaining: 12 },
+    { member: { name: 'Zoe' }, result: { finalScore: 800, questsCompleted: 20 }, completed: 20, remaining: 4 },
+    { member: { name: 'Ada' }, result: { finalScore: 420, questsCompleted: 12 }, completed: 12, remaining: 12 },
+    { member: { name: 'Mia' }, result: { finalScore: 480, questsCompleted: 8 }, completed: 8, remaining: 12 },
   ];
 
   ui.sort.competitionRemaining = { key: 'name', dir: 1 };
@@ -329,6 +329,12 @@ test('current competition remaining list sorts by name or quests left', () => {
       ['Ada', 12],
       ['Mia', 8],
     ]),
+  );
+
+  ui.sort.competitionRemaining = { key: 'average', dir: -1 };
+  assert.equal(
+    JSON.stringify(sortedCompetitionRemainingRows(rows).map(row => row.member.name)),
+    JSON.stringify(['Mia', 'Zoe', 'Ada']),
   );
 });
 
