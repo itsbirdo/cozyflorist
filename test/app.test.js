@@ -42,6 +42,7 @@ globalThis.__guildHq = {
   bestPotentialFlower,
   memberAverageQuestScore,
   fmtAverageQuestScore,
+  fmtAverageQuestPointsWithHalf,
   memberResultsScoreSummary,
   currentCompetitionSummary,
   sortedCompetitionRemainingRows,
@@ -293,12 +294,15 @@ test('week score tally sums saved and draft member scores', () => {
 });
 
 test('member result average quest score divides score by quest count', () => {
-  const { memberAverageQuestScore, fmtAverageQuestScore } = loadApp();
+  const { memberAverageQuestScore, fmtAverageQuestScore, fmtAverageQuestPointsWithHalf } = loadApp();
 
   assert.equal(memberAverageQuestScore({ finalScore: 448, questsCompleted: 8 }), 56);
   assert.equal(fmtAverageQuestScore({ finalScore: 425, questsCompleted: 8 }), '53.1');
+  assert.equal(fmtAverageQuestPointsWithHalf({ finalScore: 448, questsCompleted: 8 }), '56 (28)');
+  assert.equal(fmtAverageQuestPointsWithHalf({ finalScore: 425, questsCompleted: 8 }), '53.1 (26.6)');
   assert.equal(fmtAverageQuestScore({ finalScore: 60, questsCompleted: 0 }), '—');
   assert.equal(fmtAverageQuestScore({ finalScore: null, questsCompleted: 3 }), '—');
+  assert.equal(fmtAverageQuestPointsWithHalf({ finalScore: null, questsCompleted: 3 }), '—');
 });
 
 test('current competition summary totals saved member quests and remaining quests', () => {
@@ -356,6 +360,16 @@ test('current competition remaining list sorts by name, quests, or average score
       ['Zoe', 20],
       ['Ada', 12],
       ['Mia', 8],
+    ]),
+  );
+
+  ui.sort.competitionRemaining = { key: 'score', dir: -1 };
+  assert.equal(
+    JSON.stringify(sortedCompetitionRemainingRows(rows).map(row => [row.member.name, row.result.finalScore])),
+    JSON.stringify([
+      ['Zoe', 800],
+      ['Mia', 480],
+      ['Ada', 420],
     ]),
   );
 

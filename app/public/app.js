@@ -86,6 +86,15 @@ function fmtAverageQuestScore(result) {
     ? fmtNum(avg)
     : avg.toLocaleString(undefined, { maximumFractionDigits: 1 });
 }
+function fmtAverageQuestPointsWithHalf(result) {
+  const avg = memberAverageQuestScore(result);
+  if (avg === null) return '—';
+  const half = avg / 2;
+  const fmt = value => Number.isInteger(value)
+    ? fmtNum(value)
+    : value.toLocaleString(undefined, { maximumFractionDigits: 1 });
+  return `${fmt(avg)} (${fmt(half)})`;
+}
 
 function ordinal(n) {
   if (n === null || n === undefined || n === '') return '—';
@@ -390,25 +399,29 @@ function renderDashboard() {
               <option value="name:-1" ${ui.sort.competitionRemaining.key === 'name' && ui.sort.competitionRemaining.dir === -1 ? 'selected' : ''}>Member Z-A</option>
               <option value="completed:-1" ${ui.sort.competitionRemaining.key === 'completed' && ui.sort.competitionRemaining.dir === -1 ? 'selected' : ''}>Quests completed high-low</option>
               <option value="completed:1" ${ui.sort.competitionRemaining.key === 'completed' && ui.sort.competitionRemaining.dir === 1 ? 'selected' : ''}>Quests completed low-high</option>
+              <option value="score:-1" ${ui.sort.competitionRemaining.key === 'score' && ui.sort.competitionRemaining.dir === -1 ? 'selected' : ''}>Score high-low</option>
+              <option value="score:1" ${ui.sort.competitionRemaining.key === 'score' && ui.sort.competitionRemaining.dir === 1 ? 'selected' : ''}>Score low-high</option>
               <option value="remaining:1" ${ui.sort.competitionRemaining.key === 'remaining' && ui.sort.competitionRemaining.dir === 1 ? 'selected' : ''}>Quests left low-high</option>
               <option value="remaining:-1" ${ui.sort.competitionRemaining.key === 'remaining' && ui.sort.competitionRemaining.dir === -1 ? 'selected' : ''}>Quests left high-low</option>
-              <option value="average:-1" ${ui.sort.competitionRemaining.key === 'average' && ui.sort.competitionRemaining.dir === -1 ? 'selected' : ''}>Average score high-low</option>
-              <option value="average:1" ${ui.sort.competitionRemaining.key === 'average' && ui.sort.competitionRemaining.dir === 1 ? 'selected' : ''}>Average score low-high</option>
+              <option value="average:-1" ${ui.sort.competitionRemaining.key === 'average' && ui.sort.competitionRemaining.dir === -1 ? 'selected' : ''}>Ave. quest points high-low</option>
+              <option value="average:1" ${ui.sort.competitionRemaining.key === 'average' && ui.sort.competitionRemaining.dir === 1 ? 'selected' : ''}>Ave. quest points low-high</option>
             </select>
           </label>
           <div class="tablewrap remaining-table-wrap"><table class="remaining-table" data-sortview="competitionRemaining">
             <thead><tr>
               <th data-key="name" class="${sortArrow('competitionRemaining', 'name')}">Member</th>
-              <th data-key="completed" class="${sortArrow('competitionRemaining', 'completed')}">Quests completed</th>
-              <th data-key="average" class="${sortArrow('competitionRemaining', 'average')}">Average quest score</th>
-              <th data-key="remaining" class="${sortArrow('competitionRemaining', 'remaining')}">Quests left</th>
+              <th data-key="completed" class="${sortArrow('competitionRemaining', 'completed')}">Quests Completed</th>
+              <th data-key="score" class="${sortArrow('competitionRemaining', 'score')}">Score</th>
+              <th data-key="average" class="${sortArrow('competitionRemaining', 'average')}">Ave. Quest Points</th>
+              <th data-key="remaining" class="${sortArrow('competitionRemaining', 'remaining')}">Quests Left</th>
             </tr></thead>
             <tbody>
               ${remainingRows.map(row => `
                 <tr>
                   <td><strong>${esc(row.member.name)}</strong><br>${roleTag(row.member.role || 'Member')}<br>${floristRankTag(memberPotential(row.member))}</td>
                   <td>${row.completed}</td>
-                  <td>${fmtAverageQuestScore(row.result)}</td>
+                  <td>${fmtNum(row.result.finalScore)}</td>
+                  <td>${fmtAverageQuestPointsWithHalf(row.result)}</td>
                   <td><strong>${row.remaining}</strong></td>
                 </tr>`).join('')}
             </tbody>
@@ -1244,6 +1257,7 @@ function sortedCompetitionRemainingRows(rows) {
   const val = row => ({
     name: row.member.name,
     completed: row.completed,
+    score: row.result.finalScore,
     average: memberAverageQuestScore(row.result),
     remaining: row.remaining,
   })[key];

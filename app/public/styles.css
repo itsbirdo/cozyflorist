@@ -120,12 +120,13 @@ nav.tabs a.active { color: var(--accent); }
 .section-head label { margin: 0; min-width: 180px; }
 .section-head select { margin: 3px 0 0; padding: 7px 10px; }
 .remaining-table-wrap { margin-top: 6px; }
-.remaining-table { min-width: 700px; }
+.remaining-table { min-width: 820px; }
 .remaining-table td:first-child { white-space: normal; min-width: 220px; }
 .remaining-table td:first-child .tag { margin-top: 5px; }
 .remaining-table td:nth-child(2),
 .remaining-table td:nth-child(3),
-.remaining-table td:nth-child(4) {
+.remaining-table td:nth-child(4),
+.remaining-table td:nth-child(5) {
   font-size: 1rem; font-variant-numeric: tabular-nums;
 }
 
