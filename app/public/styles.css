@@ -123,6 +123,12 @@ nav.tabs a.active { color: var(--accent); }
 .remaining-table { min-width: 820px; }
 .remaining-table td:first-child { white-space: normal; min-width: 220px; }
 .remaining-table td:first-child .tag { margin-top: 5px; }
+.role-name { font-weight: 800; }
+.role-name-red { color: #ad3a31; }
+.role-name-yellow { color: #92701a; }
+.role-name-purple { color: #7d4bb0; }
+.role-name-blue { color: #2b6fa8; }
+.role-name-green { color: #47753f; }
 .remaining-table td:nth-child(2),
 .remaining-table td:nth-child(3),
 .remaining-table td:nth-child(4),
@@ -159,6 +165,11 @@ nav.tabs a.active { color: var(--accent); }
   .tag-blue     { background: #26394b; color: #85c0ea; }
   .tag-green    { background: #2c3a29; color: #9ecc95; }
   .tag-electric { background: linear-gradient(100deg, #5a6cff, #a24bff); color: #fff; }
+  .role-name-red { color: #f0968d; }
+  .role-name-yellow { color: #e5c069; }
+  .role-name-purple { color: #c9a1f0; }
+  .role-name-blue { color: #85c0ea; }
+  .role-name-green { color: #9ecc95; }
 }
 
 /* ---------------------------------------------------------------- tables */

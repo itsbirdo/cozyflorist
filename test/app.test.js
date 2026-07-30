@@ -326,6 +326,7 @@ test('current competition summary totals saved member quests and remaining quest
 
   assert.equal(summary.questsCompleted, 36);
   assert.equal(summary.score, 666);
+  assert.equal(summary.totalRemaining, 12);
   assert.deepEqual(summary.remaining.map(row => [row.member.name, row.remaining, row.result.finalScore]), [['Ada', 12, 111]]);
 });
 

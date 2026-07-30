@@ -151,6 +151,7 @@ function ownedFlowerIds() {
 const ROLES = ['Leader', 'Co-Leader', 'Elder', 'Elite', 'Member'];
 const ROLE_COLORS = { Leader: 'red', 'Co-Leader': 'yellow', Elder: 'purple', Elite: 'blue', Member: 'green' };
 const roleTag = role => `<span class="tag tag-${ROLE_COLORS[role] || 'green'}">${esc(role)}</span>`;
+const roleName = member => `<strong class="role-name role-name-${ROLE_COLORS[member.role] || 'green'}">${esc(member.name)}</strong>`;
 
 const RARITIES = [
   { key: 'UR', label: 'Ultra Rare', color: 'red' },
@@ -386,6 +387,7 @@ function renderDashboard() {
           <div><strong>${fmtNum(comp.questsCompleted)}</strong><span>Quests completed</span></div>
           <div><strong>${fmtNum(comp.score)}</strong><span>Score</span></div>
           <div><strong>${comp.remaining.length}</strong><span>Members with quests left</span></div>
+          <div><strong>${fmtNum(comp.totalRemaining)}</strong><span>Total quests remaining</span></div>
         </div>
         <p>Placement: <strong>${ordinal(latest.ourPlacement)}</strong>
            ${guildRankText()}
@@ -418,7 +420,7 @@ function renderDashboard() {
             <tbody>
               ${remainingRows.map(row => `
                 <tr>
-                  <td><strong>${esc(row.member.name)}</strong><br>${roleTag(row.member.role || 'Member')}<br>${floristRankTag(memberPotential(row.member))}</td>
+                  <td>${roleName(row.member)}</td>
                   <td>${row.completed}</td>
                   <td>${fmtNum(row.result.finalScore)}</td>
                   <td>${fmtAverageQuestPointsWithHalf(row.result)}</td>
@@ -1249,6 +1251,7 @@ function currentCompetitionSummary(c) {
     target,
     questsCompleted: members.reduce((sum, m) => sum + Math.max(0, optNum(results.get(m.id)?.questsCompleted) ?? 0), 0),
     score: resultScore.hasScores ? resultScore.total : c.ourScore,
+    totalRemaining: remaining.reduce((sum, row) => sum + row.remaining, 0),
     remaining,
   };
 }
