@@ -46,6 +46,8 @@ globalThis.__guildHq = {
   memberResultsScoreSummary,
   currentCompetitionSummary,
   sortedCompetitionRemainingRows,
+  allMemberFlowers,
+  questFlowerReportRows,
   weeklyPlacementMap,
   autoPlacementPatch,
   scoreBarWidth,
@@ -378,6 +380,45 @@ test('current competition remaining list sorts by name, quests, or average score
   assert.equal(
     JSON.stringify(sortedCompetitionRemainingRows(rows).map(row => row.member.name)),
     JSON.stringify(['Mia', 'Zoe', 'Ada']),
+  );
+});
+
+test('quest flower report includes flowers and points for members with quests left', () => {
+  const { state, ui, questFlowerReportRows } = loadApp();
+  state.data = fullData({
+    settings: { questsMax: 24 },
+    members: [
+      { id: 'm1', name: 'Ada', active: true, role: 'Member', questCount: 18, flowerIds: ['rose', 'lily'], flowerBonuses: { rose: 3 } },
+      { id: 'm2', name: 'Zoe', active: true, role: 'Member', questCount: 18, flowerIds: ['tulip'], flowerBonuses: {} },
+      { id: 'm3', name: 'Mia', active: true, role: 'Member', questCount: 18, flowerIds: ['rose'], flowerBonuses: {} },
+    ],
+    flowers: [
+      { id: 'rose', name: 'Rose', rarity: 'UR', points: 30 },
+      { id: 'lily', name: 'Lily', rarity: 'SSR', points: 28 },
+      { id: 'tulip', name: 'Tulip', rarity: 'SR', points: 23 },
+    ],
+  });
+  ui.sort.competitionRemaining = { key: 'name', dir: 1 };
+
+  const rows = questFlowerReportRows({
+    memberResults: [
+      { memberId: 'm1', finalScore: 400, questsCompleted: 20, questDetail: [] },
+      { memberId: 'm2', finalScore: 600, questsCompleted: 24, questDetail: [] },
+      { memberId: 'm3', finalScore: 200, questsCompleted: 10, questDetail: [] },
+    ],
+  });
+
+  assert.equal(
+    JSON.stringify(rows.map(row => [row.member.name, row.questsLeft])),
+    JSON.stringify([['Ada', 4], ['Mia', 14]]),
+  );
+  assert.equal(
+    JSON.stringify(rows[0].flowers.map(item => [item.flower.name, item.total])),
+    JSON.stringify([['Rose', 33], ['Lily', 28]]),
+  );
+  assert.equal(
+    JSON.stringify(rows[1].flowers.map(item => [item.flower.name, item.total])),
+    JSON.stringify([['Rose', 30]]),
   );
 });
 

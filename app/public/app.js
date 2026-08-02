@@ -373,6 +373,7 @@ function renderDashboard() {
 
   const comps = [...d.competitions].sort((a, b) => cmp(b.weekStart, a.weekStart));
   const latest = comps[0];
+  const questFlowerRows = latest ? questFlowerReportRows(latest) : [];
   let latestCard = '';
   if (latest) {
     const rivals = [...(latest.competitors || [])].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
@@ -470,6 +471,45 @@ function renderDashboard() {
       <p class="muted">Estimate: ${esc(pot.basis)}. Each member uses their own highest-point
       flower, applies the max multiplier, adds that member's bonus on that flower, then multiplies
       by max quests.</p>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top:0">Quest flower report</h2>
+      ${latest
+        ? `<p class="muted small">${esc(weekLabel(latest))}</p>
+          ${questFlowerRows.length ? `
+            <div class="tablewrap">
+              <table class="quest-flower-table">
+                <thead><tr>
+                  <th>Member</th>
+                  <th>Quests left</th>
+                  <th>Flowers</th>
+                  <th>Points</th>
+                </tr></thead>
+                <tbody>
+                  ${questFlowerRows.map(row => `
+                    <tr>
+                      <td>${roleName(row.member)}</td>
+                      <td><strong>${row.questsLeft}</strong></td>
+                      <td class="wrap">
+                        ${row.flowers.length ? `<div class="flowerlist">${row.flowers.map(item => `
+                          <span class="flowerpill">${esc(item.flower.name)} ${rarityTag(item.flower.rarity)}</span>
+                        `).join('')}</div>` : '<span class="muted">No flowers recorded.</span>'}
+                      </td>
+                      <td class="wrap">
+                        ${row.flowers.length ? `<div class="flowerlist">${row.flowers.map(item => `
+                          <span class="flowerpill">
+                            <strong>${fmtNum(item.total)}</strong>
+                            ${item.bonus ? `<span class="muted small">${fmtNum(item.flower.points)} + ${fmtNum(item.bonus)}</span>` : ''}
+                          </span>
+                        `).join('')}</div>` : '<span class="muted">—</span>'}
+                      </td>
+                    </tr>`).join('')}
+                </tbody>
+              </table>
+            </div>`
+            : '<p class="muted">All active members have completed their weekly quests.</p>'}`
+        : '<p class="muted">Add a competition week to see which members still need quest flowers.</p>'}
     </div>
   `, '#/dashboard');
   bindChrome();
@@ -1265,6 +1305,21 @@ function sortedCompetitionRemainingRows(rows) {
     remaining: row.remaining,
   })[key];
   return [...rows].sort((a, b) => dir * cmp(val(a), val(b)) || cmp(a.member.name, b.member.name));
+}
+function allMemberFlowers(m) {
+  return (m.flowerIds || [])
+    .map(flowerById)
+    .filter(Boolean)
+    .map(f => ({ flower: f, bonus: flowerBonus(m, f.id), total: (f.points || 0) + flowerBonus(m, f.id) }))
+    .sort((a, b) => cmp(b.total, a.total) || cmp(b.flower.points || 0, a.flower.points || 0) || cmp(a.flower.name, b.flower.name));
+}
+function questFlowerReportRows(c) {
+  return sortedCompetitionRemainingRows(currentCompetitionSummary(c).remaining)
+    .map(row => ({
+      member: row.member,
+      questsLeft: row.remaining,
+      flowers: allMemberFlowers(row.member),
+    }));
 }
 function currentWeekOurScore(c) {
   const score = memberResultsScoreSummary(mergedMemberResultsForSave(c));
