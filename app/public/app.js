@@ -295,6 +295,14 @@ function csvCell(v) {
 function tsvCell(v) {
   return String(v ?? '').replace(/\t/g, ' ').replace(/\r?\n/g, ' ');
 }
+function restoreInputFocus(selector, start, end = start) {
+  requestAnimationFrame(() => {
+    const el = $(selector);
+    if (!el) return;
+    el.focus();
+    el.setSelectionRange?.(start, end);
+  });
+}
 
 // ----------------------------------------------------------------- chrome --
 
@@ -522,8 +530,11 @@ function renderDashboard() {
     renderDashboard();
   });
   $('#questflowersearch')?.addEventListener('input', e => {
+    const start = e.target.selectionStart ?? e.target.value.length;
+    const end = e.target.selectionEnd ?? start;
     ui.search.questFlowers = e.target.value;
     renderDashboard();
+    restoreInputFocus('#questflowersearch', start, end);
   });
   $('#exportquestflowers')?.addEventListener('click', () => {
     exportQuestFlowerReport(latest, visibleQuestFlowerRows, ui.search.questFlowers);
