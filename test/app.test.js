@@ -49,7 +49,10 @@ globalThis.__guildHq = {
   allMemberFlowers,
   questFlowerReportRows,
   filteredQuestFlowerReportRows,
+  questFlowerReportExportRows,
   questFlowerReportCsv,
+  questFlowerReportTsv,
+  questFlowerReportExcelHtml,
   weeklyPlacementMap,
   autoPlacementPatch,
   scoreBarWidth,
@@ -458,8 +461,8 @@ test('quest flower report can be filtered by flower or member', () => {
 });
 
 test('quest flower report exports one csv row per flower member match', () => {
-  const { questFlowerReportCsv } = loadApp();
-  const csv = questFlowerReportCsv([
+  const { questFlowerReportCsv, questFlowerReportExportRows } = loadApp();
+  const rows = [
     {
       flower: { name: 'Rose, Red' },
       points: 30,
@@ -468,9 +471,39 @@ test('quest flower report exports one csv row per flower member match', () => {
         { member: { name: 'Mia' }, questsLeft: 14, bonus: 0 },
       ],
     },
-  ]);
+  ];
+  const csv = questFlowerReportCsv(rows);
 
+  assert.equal(
+    JSON.stringify(questFlowerReportExportRows(rows)),
+    JSON.stringify([
+      ['Flower', 'Points', 'Member', 'Quests left', 'Bonus'],
+      ['Rose, Red', 30, 'Ada', 4, 3],
+      ['Rose, Red', 30, 'Mia', 14, ''],
+    ]),
+  );
   assert.equal(csv, 'Flower,Points,Member,Quests left,Bonus\n"Rose, Red",30,Ada,4,3\n"Rose, Red",30,Mia,14,');
+});
+
+test('quest flower report exports sheets tsv and excel html', () => {
+  const { questFlowerReportTsv, questFlowerReportExcelHtml } = loadApp();
+  const rows = [
+    {
+      flower: { name: 'Blue\tRose' },
+      points: 30,
+      members: [
+        { member: { name: 'Ada\nLovelace' }, questsLeft: 4, bonus: 3 },
+      ],
+    },
+  ];
+
+  assert.equal(questFlowerReportTsv(rows), 'Flower\tPoints\tMember\tQuests left\tBonus\nBlue Rose\t30\tAda Lovelace\t4\t3');
+
+  const html = questFlowerReportExcelHtml(rows);
+  assert.equal(html.includes('<table>'), true);
+  assert.equal(html.includes('<th>Flower</th>'), true);
+  assert.equal(html.includes('<td>Blue\tRose</td>'), true);
+  assert.equal(html.includes('<td>Ada\nLovelace</td>'), true);
 });
 
 test('weekly placements are calculated from scores with competition ranking', () => {

@@ -292,6 +292,9 @@ function csvCell(v) {
   const s = String(v ?? '');
   return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
 }
+function tsvCell(v) {
+  return String(v ?? '').replace(/\t/g, ' ').replace(/\r?\n/g, ' ');
+}
 
 // ----------------------------------------------------------------- chrome --
 
@@ -475,6 +478,8 @@ function renderDashboard() {
             <div class="toolbar quest-flower-toolbar">
               <input type="search" id="questflowersearch" placeholder="Search flower or member…" value="${esc(ui.search.questFlowers)}">
               <button class="btn secondary small" id="exportquestflowers" type="button">Export CSV</button>
+              <button class="btn secondary small" id="exportquestflowersexcel" type="button">Export Excel</button>
+              <button class="btn secondary small" id="copyquestflowersheets" type="button">Google Sheets</button>
             </div>
             ${visibleQuestFlowerRows.length ? `
             <div class="tablewrap">
@@ -522,6 +527,12 @@ function renderDashboard() {
   });
   $('#exportquestflowers')?.addEventListener('click', () => {
     exportQuestFlowerReport(latest, visibleQuestFlowerRows, ui.search.questFlowers);
+  });
+  $('#exportquestflowersexcel')?.addEventListener('click', () => {
+    exportQuestFlowerReportExcel(latest, visibleQuestFlowerRows, ui.search.questFlowers);
+  });
+  $('#copyquestflowersheets')?.addEventListener('click', async () => {
+    await copyQuestFlowerReportForSheets(visibleQuestFlowerRows);
   });
 }
 
@@ -1343,11 +1354,11 @@ function filteredQuestFlowerReportRows(rows, query) {
     return members.length ? [{ ...row, members }] : [];
   });
 }
-function questFlowerReportCsv(rows) {
-  const csvRows = [['Flower', 'Points', 'Member', 'Quests left', 'Bonus']];
+function questFlowerReportExportRows(rows) {
+  const exportRows = [['Flower', 'Points', 'Member', 'Quests left', 'Bonus']];
   for (const row of rows) {
     for (const item of row.members) {
-      csvRows.push([
+      exportRows.push([
         row.flower.name,
         row.points,
         item.member.name,
@@ -1356,13 +1367,53 @@ function questFlowerReportCsv(rows) {
       ]);
     }
   }
-  return csvRows.map(row => row.map(csvCell).join(',')).join('\n');
+  return exportRows;
+}
+function questFlowerReportCsv(rows) {
+  return questFlowerReportExportRows(rows).map(row => row.map(csvCell).join(',')).join('\n');
+}
+function questFlowerReportTsv(rows) {
+  return questFlowerReportExportRows(rows).map(row => row.map(tsvCell).join('\t')).join('\n');
+}
+function questFlowerReportExcelHtml(rows) {
+  return `<!doctype html>
+<html>
+<head><meta charset="utf-8"></head>
+<body>
+<table>
+${questFlowerReportExportRows(rows).map((row, i) => `  <tr>${row.map(cell => i === 0 ? `<th>${esc(cell)}</th>` : `<td>${esc(cell)}</td>`).join('')}</tr>`).join('\n')}
+</table>
+</body>
+</html>`;
+}
+function questFlowerExportSuffix(query = '') {
+  return String(query || '').trim() ? '-filtered' : '';
 }
 function exportQuestFlowerReport(week, rows, query = '') {
   if (!week) return;
-  const suffix = String(query || '').trim() ? '-filtered' : '';
+  const suffix = questFlowerExportSuffix(query);
   downloadFile(`quest-flower-report-${week.weekStart || 'undated'}${suffix}.csv`, questFlowerReportCsv(rows));
   toast(`Quest flower report exported${suffix ? ' (filtered)' : ''}`);
+}
+function exportQuestFlowerReportExcel(week, rows, query = '') {
+  if (!week) return;
+  const suffix = questFlowerExportSuffix(query);
+  downloadFile(
+    `quest-flower-report-${week.weekStart || 'undated'}${suffix}.xls`,
+    questFlowerReportExcelHtml(rows),
+    'application/vnd.ms-excel',
+  );
+  toast(`Excel report exported${suffix ? ' (filtered)' : ''}`);
+}
+async function copyQuestFlowerReportForSheets(rows) {
+  const text = questFlowerReportTsv(rows);
+  try {
+    await navigator.clipboard.writeText(text);
+    toast('Copied for Google Sheets');
+  } catch {
+    downloadFile('quest-flower-report-google-sheets.tsv', text, 'text/tab-separated-values');
+    toast('Sheets file downloaded');
+  }
 }
 function currentWeekOurScore(c) {
   const score = memberResultsScoreSummary(mergedMemberResultsForSave(c));
