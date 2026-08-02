@@ -48,6 +48,8 @@ globalThis.__guildHq = {
   sortedCompetitionRemainingRows,
   allMemberFlowers,
   questFlowerReportRows,
+  filteredQuestFlowerReportRows,
+  questFlowerReportCsv,
   weeklyPlacementMap,
   autoPlacementPatch,
   scoreBarWidth,
@@ -420,6 +422,55 @@ test('quest flower report groups members with quests left by flower', () => {
     JSON.stringify(rows[1].members.map(item => [item.member.name, item.questsLeft, item.bonus])),
     JSON.stringify([['Ada', 4, 0]]),
   );
+});
+
+test('quest flower report can be filtered by flower or member', () => {
+  const { state, ui, questFlowerReportRows, filteredQuestFlowerReportRows } = loadApp();
+  state.data = fullData({
+    settings: { questsMax: 24 },
+    members: [
+      { id: 'm1', name: 'Ada', active: true, role: 'Member', questCount: 18, flowerIds: ['rose', 'lily'], flowerBonuses: {} },
+      { id: 'm2', name: 'Mia', active: true, role: 'Member', questCount: 18, flowerIds: ['rose'], flowerBonuses: {} },
+    ],
+    flowers: [
+      { id: 'rose', name: 'Rose', rarity: 'UR', points: 30 },
+      { id: 'lily', name: 'Lily', rarity: 'SSR', points: 28 },
+    ],
+  });
+  ui.sort.competitionRemaining = { key: 'name', dir: 1 };
+
+  const rows = questFlowerReportRows({
+    memberResults: [
+      { memberId: 'm1', finalScore: 400, questsCompleted: 20, questDetail: [] },
+      { memberId: 'm2', finalScore: 200, questsCompleted: 10, questDetail: [] },
+    ],
+  });
+
+  assert.equal(
+    JSON.stringify(filteredQuestFlowerReportRows(rows, 'rose').map(row => [row.flower.name, row.members.map(item => item.member.name)])),
+    JSON.stringify([['Rose', ['Ada', 'Mia']]]),
+  );
+  assert.equal(
+    JSON.stringify(filteredQuestFlowerReportRows(rows, 'ada').map(row => [row.flower.name, row.members.map(item => item.member.name)])),
+    JSON.stringify([['Rose', ['Ada']], ['Lily', ['Ada']]]),
+  );
+  assert.equal(JSON.stringify(filteredQuestFlowerReportRows(rows, 'orchid')), JSON.stringify([]));
+});
+
+test('quest flower report exports one csv row per flower member match', () => {
+  const { questFlowerReportCsv } = loadApp();
+  const csv = questFlowerReportCsv([
+    {
+      flower: { name: 'Rose, Red' },
+      points: 30,
+      members: [
+        { member: { name: 'Ada' }, questsLeft: 4, bonus: 3 },
+        { member: { name: 'Mia' }, questsLeft: 14, bonus: 0 },
+      ],
+    },
+  ]);
+
+  assert.equal(csv, 'Flower,Points,Member,Quests left,Bonus\n"Rose, Red",30,Ada,4,3\n"Rose, Red",30,Mia,14,');
 });
 
 test('weekly placements are calculated from scores with competition ranking', () => {

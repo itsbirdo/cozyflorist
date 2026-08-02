@@ -16,7 +16,7 @@ const ui = {
     weekMemberResults: { key: 'name', dir: 1 },
     competitionRemaining: { key: 'name', dir: 1 },
   },
-  search: { summary: '', members: '', flowers: '', rivals: '' },
+  search: { summary: '', members: '', flowers: '', rivals: '', questFlowers: '' },
   filters: { summaryFlower: '', membersRole: '', showInactive: false, flowersRarity: '' },
   weekDraft: { compId: null, results: {} }, // admin edit draft for a week's member results
   rivalsWeekId: null, // which competition week the Rivals estimate cards show
@@ -374,6 +374,7 @@ function renderDashboard() {
   const comps = [...d.competitions].sort((a, b) => cmp(b.weekStart, a.weekStart));
   const latest = comps[0];
   const questFlowerRows = latest ? questFlowerReportRows(latest) : [];
+  const visibleQuestFlowerRows = filteredQuestFlowerReportRows(questFlowerRows, ui.search.questFlowers);
   let latestCard = '';
   if (latest) {
     const rivals = [...(latest.competitors || [])].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
@@ -471,6 +472,11 @@ function renderDashboard() {
       ${latest
         ? `<p class="muted small">${esc(weekLabel(latest))}</p>
           ${questFlowerRows.length ? `
+            <div class="toolbar quest-flower-toolbar">
+              <input type="search" id="questflowersearch" placeholder="Search flower or member…" value="${esc(ui.search.questFlowers)}">
+              <button class="btn secondary small" id="exportquestflowers" type="button">Export CSV</button>
+            </div>
+            ${visibleQuestFlowerRows.length ? `
             <div class="tablewrap">
               <table class="quest-flower-table">
                 <thead><tr>
@@ -479,7 +485,7 @@ function renderDashboard() {
                   <th>Member</th>
                 </tr></thead>
                 <tbody>
-                  ${questFlowerRows.map(row => `
+                  ${visibleQuestFlowerRows.map(row => `
                     <tr>
                       <td>
                         <strong>${esc(row.flower.name)}</strong>
@@ -498,6 +504,7 @@ function renderDashboard() {
                 </tbody>
               </table>
             </div>`
+            : '<p class="muted">No quest flowers match that search.</p>'}`
             : '<p class="muted">No flowers are recorded for members with quests left.</p>'}`
         : '<p class="muted">Add a competition week to see which members still need quest flowers.</p>'}
     </div>
@@ -508,6 +515,13 @@ function renderDashboard() {
     const [key, dir] = e.target.value.split(':');
     ui.sort.competitionRemaining = { key, dir: Number(dir) };
     renderDashboard();
+  });
+  $('#questflowersearch')?.addEventListener('input', e => {
+    ui.search.questFlowers = e.target.value;
+    renderDashboard();
+  });
+  $('#exportquestflowers')?.addEventListener('click', () => {
+    exportQuestFlowerReport(latest, visibleQuestFlowerRows, ui.search.questFlowers);
   });
 }
 
@@ -1319,6 +1333,36 @@ function questFlowerReportRows(c) {
   }
   return [...groups.values()]
     .sort((a, b) => cmp(b.points, a.points) || cmp(a.flower.name, b.flower.name));
+}
+function filteredQuestFlowerReportRows(rows, query) {
+  const q = String(query || '').trim().toLowerCase();
+  if (!q) return rows;
+  return rows.flatMap(row => {
+    if (row.flower.name.toLowerCase().includes(q)) return [row];
+    const members = row.members.filter(item => item.member.name.toLowerCase().includes(q));
+    return members.length ? [{ ...row, members }] : [];
+  });
+}
+function questFlowerReportCsv(rows) {
+  const csvRows = [['Flower', 'Points', 'Member', 'Quests left', 'Bonus']];
+  for (const row of rows) {
+    for (const item of row.members) {
+      csvRows.push([
+        row.flower.name,
+        row.points,
+        item.member.name,
+        item.questsLeft,
+        item.bonus || '',
+      ]);
+    }
+  }
+  return csvRows.map(row => row.map(csvCell).join(',')).join('\n');
+}
+function exportQuestFlowerReport(week, rows, query = '') {
+  if (!week) return;
+  const suffix = String(query || '').trim() ? '-filtered' : '';
+  downloadFile(`quest-flower-report-${week.weekStart || 'undated'}${suffix}.csv`, questFlowerReportCsv(rows));
+  toast(`Quest flower report exported${suffix ? ' (filtered)' : ''}`);
 }
 function currentWeekOurScore(c) {
   const score = memberResultsScoreSummary(mergedMemberResultsForSave(c));
