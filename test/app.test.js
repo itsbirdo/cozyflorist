@@ -383,7 +383,7 @@ test('current competition remaining list sorts by name, quests, or average score
   );
 });
 
-test('quest flower report includes flowers and points for members with quests left', () => {
+test('quest flower report groups members with quests left by flower', () => {
   const { state, ui, questFlowerReportRows } = loadApp();
   state.data = fullData({
     settings: { questsMax: 24 },
@@ -409,16 +409,16 @@ test('quest flower report includes flowers and points for members with quests le
   });
 
   assert.equal(
-    JSON.stringify(rows.map(row => [row.member.name, row.questsLeft])),
-    JSON.stringify([['Ada', 4], ['Mia', 14]]),
+    JSON.stringify(rows.map(row => [row.flower.name, row.points])),
+    JSON.stringify([['Rose', 30], ['Lily', 28]]),
   );
   assert.equal(
-    JSON.stringify(rows[0].flowers.map(item => [item.flower.name, item.total])),
-    JSON.stringify([['Rose', 33], ['Lily', 28]]),
+    JSON.stringify(rows[0].members.map(item => [item.member.name, item.questsLeft, item.bonus])),
+    JSON.stringify([['Ada', 4, 3], ['Mia', 14, 0]]),
   );
   assert.equal(
-    JSON.stringify(rows[1].flowers.map(item => [item.flower.name, item.total])),
-    JSON.stringify([['Rose', 30]]),
+    JSON.stringify(rows[1].members.map(item => [item.member.name, item.questsLeft, item.bonus])),
+    JSON.stringify([['Ada', 4, 0]]),
   );
 });
 

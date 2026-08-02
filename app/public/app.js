@@ -481,34 +481,31 @@ function renderDashboard() {
             <div class="tablewrap">
               <table class="quest-flower-table">
                 <thead><tr>
-                  <th>Member</th>
-                  <th>Quests left</th>
-                  <th>Flowers</th>
+                  <th>Flower</th>
                   <th>Points</th>
+                  <th>Member</th>
                 </tr></thead>
                 <tbody>
                   ${questFlowerRows.map(row => `
                     <tr>
-                      <td>${roleName(row.member)}</td>
-                      <td><strong>${row.questsLeft}</strong></td>
-                      <td class="wrap">
-                        ${row.flowers.length ? `<div class="flowerlist">${row.flowers.map(item => `
-                          <span class="flowerpill">${esc(item.flower.name)} ${rarityTag(item.flower.rarity)}</span>
-                        `).join('')}</div>` : '<span class="muted">No flowers recorded.</span>'}
+                      <td>
+                        <strong>${esc(row.flower.name)}</strong>
+                        ${rarityTag(row.flower.rarity)}
                       </td>
+                      <td><strong>${fmtNum(row.points)}</strong></td>
                       <td class="wrap">
-                        ${row.flowers.length ? `<div class="flowerlist">${row.flowers.map(item => `
+                        <div class="flowerlist">${row.members.map(item => `
                           <span class="flowerpill">
-                            <strong>${fmtNum(item.total)}</strong>
-                            ${item.bonus ? `<span class="muted small">${fmtNum(item.flower.points)} + ${fmtNum(item.bonus)}</span>` : ''}
+                            ${roleName(item.member)}
+                            <span class="muted small">${item.questsLeft} left${item.bonus ? ` · +${fmtNum(item.bonus)}` : ''}</span>
                           </span>
-                        `).join('')}</div>` : '<span class="muted">—</span>'}
+                        `).join('')}</div>
                       </td>
                     </tr>`).join('')}
                 </tbody>
               </table>
             </div>`
-            : '<p class="muted">All active members have completed their weekly quests.</p>'}`
+            : '<p class="muted">No flowers are recorded for members with quests left.</p>'}`
         : '<p class="muted">Add a competition week to see which members still need quest flowers.</p>'}
     </div>
   `, '#/dashboard');
@@ -1314,12 +1311,21 @@ function allMemberFlowers(m) {
     .sort((a, b) => cmp(b.total, a.total) || cmp(b.flower.points || 0, a.flower.points || 0) || cmp(a.flower.name, b.flower.name));
 }
 function questFlowerReportRows(c) {
-  return sortedCompetitionRemainingRows(currentCompetitionSummary(c).remaining)
-    .map(row => ({
-      member: row.member,
-      questsLeft: row.remaining,
-      flowers: allMemberFlowers(row.member),
-    }));
+  const groups = new Map();
+  for (const row of sortedCompetitionRemainingRows(currentCompetitionSummary(c).remaining)) {
+    for (const item of allMemberFlowers(row.member)) {
+      if (!groups.has(item.flower.id)) {
+        groups.set(item.flower.id, { flower: item.flower, points: item.flower.points || 0, members: [] });
+      }
+      groups.get(item.flower.id).members.push({
+        member: row.member,
+        questsLeft: row.remaining,
+        bonus: item.bonus,
+      });
+    }
+  }
+  return [...groups.values()]
+    .sort((a, b) => cmp(b.points, a.points) || cmp(a.flower.name, b.flower.name));
 }
 function currentWeekOurScore(c) {
   const score = memberResultsScoreSummary(mergedMemberResultsForSave(c));

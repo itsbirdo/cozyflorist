@@ -137,8 +137,7 @@ nav.tabs a.active { color: var(--accent); }
 }
 .quest-flower-table { min-width: 720px; }
 .quest-flower-table td:nth-child(2) { font-size: 1rem; font-variant-numeric: tabular-nums; }
-.quest-flower-table td:nth-child(3),
-.quest-flower-table td:nth-child(4) { min-width: 220px; vertical-align: top; }
+.quest-flower-table td:nth-child(3) { min-width: 320px; vertical-align: top; }
 
 .flowerlist { display: grid; gap: 5px; align-items: start; min-width: 240px; }
 .flowerpill {
