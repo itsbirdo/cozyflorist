@@ -467,13 +467,6 @@ function renderDashboard() {
     ${latestCard}
 
     <div class="card">
-      <h2 style="margin-top:0">Max potential — how it's calculated</h2>
-      <p class="muted">Estimate: ${esc(pot.basis)}. Each member uses their own highest-point
-      flower, applies the max multiplier, adds that member's bonus on that flower, then multiplies
-      by max quests.</p>
-    </div>
-
-    <div class="card">
       <h2 style="margin-top:0">Quest flower report</h2>
       ${latest
         ? `<p class="muted small">${esc(weekLabel(latest))}</p>
