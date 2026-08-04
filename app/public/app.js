@@ -9,7 +9,7 @@ const ui = {
   sort: {
     summary: { key: 'name', dir: 1 },
     members: { key: 'name', dir: 1 },
-    memberFlowers: { key: 'rarity', dir: -1 },
+    memberFlowers: { key: 'points', dir: -1 },
     flowers: { key: 'points', dir: -1 },
     rivals: { key: 'score', dir: -1 },
     weekCompetitors: { key: 'placement', dir: 1 },

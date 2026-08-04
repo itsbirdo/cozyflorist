@@ -137,6 +137,13 @@ test('flowers page defaults to max points sorting', () => {
   assert.equal(ui.sort.flowers.dir, -1);
 });
 
+test('member flowers default to highest points sorting', () => {
+  const { ui } = loadApp();
+
+  assert.equal(ui.sort.memberFlowers.key, 'points');
+  assert.equal(ui.sort.memberFlowers.dir, -1);
+});
+
 test('flower points pick the matching rarity tier', () => {
   const { rarityForPoints } = loadApp();
 
