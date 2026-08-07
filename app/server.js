@@ -76,6 +76,7 @@ function defaultData() {
         supreme: 1400,
         unknown: 500,           // assumed floor for members showing no label
       },
+      usefulLinks: [],           // {label,url,description}
     },
     members: [],       // {id,name,role,timezone,active,notes,questCount,flowerIds,flowerBonuses,potentialOverride}
     flowers: [],       // {id,name,rarity,points}
@@ -308,6 +309,25 @@ function sanitizeMemberPatch(body, existing) {
 
 const EST_KEYS = ['standard', 'senior', 'honored', 'peerless', 'supreme'];
 
+function sanitizeUsefulLink(item) {
+  if (!item || typeof item !== 'object') return null;
+  const rawUrl = str(item.url, 500).trim();
+  if (!rawUrl) return null;
+  let url;
+  try {
+    url = new URL(/^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`);
+  } catch {
+    return null;
+  }
+  if (!['http:', 'https:'].includes(url.protocol)) return null;
+  const label = str(item.label || item.title || url.hostname, 80).trim() || url.hostname;
+  return {
+    label,
+    url: url.href,
+    description: str(item.description, 180).trim(),
+  };
+}
+
 // rival title-count estimate: {totalPlayers, counts:{standard..supreme}} or null
 function sanitizeEstimate(e) {
   if (!e || typeof e !== 'object') return null;
@@ -388,6 +408,9 @@ function sanitizeSettings(body) {
         if (n !== null) s.floristRanks[key] = Math.max(0, n);
       }
     }
+  }
+  if ('usefulLinks' in body && Array.isArray(body.usefulLinks)) {
+    s.usefulLinks = body.usefulLinks.slice(0, 30).map(sanitizeUsefulLink).filter(Boolean);
   }
 }
 

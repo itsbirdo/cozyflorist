@@ -57,6 +57,7 @@ globalThis.__guildHq = {
   autoPlacementPatch,
   scoreBarWidth,
   scoreComparisonEntries,
+  usefulLinksHtml,
 };
 `);
   assert.notEqual(patched, script, 'test loader should replace browser boot code');
@@ -164,6 +165,21 @@ test('guild rank display is blank until configured and escapes saved text', () =
 
   state.data.settings.guildRank = '<Rank 12>';
   assert.equal(guildRankText(), ' · Guild rank: <strong>&lt;Rank 12&gt;</strong>');
+});
+
+test('useful links render labels, descriptions, and escaped URLs', () => {
+  const { state, usefulLinksHtml } = loadApp();
+  state.role = 'admin';
+
+  const html = usefulLinksHtml([{
+    label: '<Guide>',
+    url: 'https://example.com/?q=<x>',
+    description: 'Read <first>',
+  }]);
+
+  assert.match(html, /&lt;Guide&gt;/);
+  assert.match(html, /https:\/\/example\.com\/\?q=&lt;x&gt;/);
+  assert.match(html, /Read &lt;first&gt;/);
 });
 
 test('week results use configured guild rank for our row', () => {

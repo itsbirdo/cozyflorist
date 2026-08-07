@@ -148,6 +148,20 @@ nav.tabs a.active { color: var(--accent); }
 }
 .flowerpill strong { font-variant-numeric: tabular-nums; }
 
+.linklist { display: grid; gap: 8px; }
+.usefullink {
+  display: grid; gap: 2px;
+  border: 1px solid var(--line); border-radius: 10px;
+  padding: 10px 12px; background: var(--bg); color: var(--ink);
+}
+.usefullink strong { color: var(--accent); }
+.usefullink span { color: var(--muted); font-size: .86rem; }
+.linkformlist { display: grid; gap: 10px; margin-top: 8px; }
+.linkrow {
+  border: 1px solid var(--line); border-radius: 10px;
+  padding: 10px; background: var(--bg);
+}
+
 /* colour-coded labels: member roles, flower rarities, florist ranks */
 .tag {
   display: inline-flex; align-items: center; gap: 4px;

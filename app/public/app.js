@@ -229,6 +229,18 @@ function guildRankText() {
   return rank ? ` · Guild rank: <strong>${esc(rank)}</strong>` : '';
 }
 
+function usefulLinksHtml(links) {
+  return (links || []).length ? `
+    <div class="linklist">
+      ${links.map(link => `
+        <a class="usefullink" href="${esc(link.url)}" target="_blank" rel="noopener noreferrer">
+          <strong>${esc(link.label || link.url)}</strong>
+          ${link.description ? `<span>${esc(link.description)}</span>` : ''}
+        </a>`).join('')}
+    </div>`
+    : `<p class="muted">No useful links have been added yet.${isAdmin() ? ' Add them in Settings.' : ''}</p>`;
+}
+
 // ui utilities ---------------------------------------------------------------
 
 let toastTimer = null;
@@ -367,6 +379,38 @@ function renderLogin() {
 
 // -------------------------------------------------------------- dashboard --
 
+function questFlowerReportResultsHtml(rows) {
+  return rows.length ? `
+    <div class="tablewrap">
+      <table class="quest-flower-table">
+        <thead><tr>
+          <th>Flower</th>
+          <th>Points</th>
+          <th>Member</th>
+        </tr></thead>
+        <tbody>
+          ${rows.map(row => `
+            <tr>
+              <td>
+                <strong>${esc(row.flower.name)}</strong>
+                ${rarityTag(row.flower.rarity)}
+              </td>
+              <td><strong>${fmtNum(row.points)}</strong></td>
+              <td class="wrap">
+                <div class="flowerlist">${row.members.map(item => `
+                  <span class="flowerpill">
+                    ${roleName(item.member)}
+                    <span class="muted small">${item.questsLeft} left${item.bonus ? ` · +${fmtNum(item.bonus)}` : ''}</span>
+                  </span>
+                `).join('')}</div>
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`
+    : '<p class="muted">No quest flowers match that search.</p>';
+}
+
 function renderDashboard() {
   const d = state.data, s = d.settings;
   const active = d.members.filter(m => m.active);
@@ -474,6 +518,11 @@ function renderDashboard() {
     <div class="card">
       <h2 style="margin-top:0">Flowers owned by rarity</h2>
       ${rarityChips}
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top:0">Useful links</h2>
+      ${usefulLinksHtml(s.usefulLinks)}
     </div>
 
     ${latestCard}
@@ -2238,6 +2287,7 @@ function renderRivals() {
 function renderSettings() {
   const s = state.data.settings;
   const ro = isAdmin() ? '' : 'disabled';
+  const linkRows = (s.usefulLinks && s.usefulLinks.length ? s.usefulLinks : [{ label: '', url: '', description: '' }]);
   app().innerHTML = chrome(`
     <h1>Settings</h1>
     ${isAdmin() ? '' : '<p class="muted">You\'re viewing as read-only. Ask an admin to change settings.</p>'}
@@ -2302,6 +2352,25 @@ function renderSettings() {
         </div>
       </div>
 
+      <div class="card">
+        <div class="section-head">
+          <h2 style="margin-top:0">Useful links</h2>
+          ${isAdmin() ? '<button class="btn secondary small" type="button" id="addlink">+ Add link</button>' : ''}
+        </div>
+        <div id="usefullinkrows" class="linkformlist">
+          ${linkRows.map((link, i) => `
+            <div class="linkrow" data-linkrow>
+              <div class="formrow">
+                <div><label>Link title</label><input name="link_label_${i}" ${ro} value="${esc(link.label || '')}" placeholder="Discord guide"></div>
+                <div><label>URL</label><input name="link_url_${i}" ${ro} value="${esc(link.url || '')}" placeholder="https://example.com"></div>
+              </div>
+              <label>Short description</label>
+              <textarea name="link_description_${i}" ${ro} maxlength="180" placeholder="What this link is useful for">${esc(link.description || '')}</textarea>
+              ${isAdmin() ? '<button class="btn danger small" type="button" data-removelink>Remove</button>' : ''}
+            </div>`).join('')}
+        </div>
+      </div>
+
       ${isAdmin() ? '<button class="btn" style="width:100%">Save settings</button>' : ''}
     </form>
 
@@ -2330,9 +2399,31 @@ function renderSettings() {
   });
 
   if (isAdmin()) {
+    $('#addlink')?.addEventListener('click', () => {
+      const rows = $('#usefullinkrows');
+      rows.insertAdjacentHTML('beforeend', `
+        <div class="linkrow" data-linkrow>
+          <div class="formrow">
+            <div><label>Link title</label><input name="link_label_new" value="" placeholder="Discord guide"></div>
+            <div><label>URL</label><input name="link_url_new" value="" placeholder="https://example.com"></div>
+          </div>
+          <label>Short description</label>
+          <textarea name="link_description_new" maxlength="180" placeholder="What this link is useful for"></textarea>
+          <button class="btn danger small" type="button" data-removelink>Remove</button>
+        </div>`);
+    });
+    $('#usefullinkrows')?.addEventListener('click', e => {
+      if (!e.target.matches('[data-removelink]')) return;
+      e.target.closest('[data-linkrow]')?.remove();
+    });
     $('#sform').addEventListener('submit', async e => {
       e.preventDefault();
       const f = new FormData(e.target);
+      const usefulLinks = [...document.querySelectorAll('[data-linkrow]')].map(row => ({
+        label: row.querySelector('input[name^="link_label_"]')?.value,
+        url: row.querySelector('input[name^="link_url_"]')?.value,
+        description: row.querySelector('textarea[name^="link_description_"]')?.value,
+      })).filter(link => link.url);
       await saveAndReload(() => api('/api/settings', 'PUT', {
         guildName: f.get('guildName'),
         guildRank: f.get('guildRank'),
@@ -2351,6 +2442,7 @@ function renderSettings() {
         },
         floristRanks: Object.fromEntries(
           [...FLORIST_RANKS.map(r => r.key), 'unknown'].map(k => [k, f.get(`fr_${k}`)])),
+        usefulLinks,
       }), 'Settings saved');
     });
   }
