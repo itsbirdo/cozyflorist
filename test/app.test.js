@@ -323,6 +323,28 @@ test('week score tally sums saved and draft member scores', () => {
   assert.equal(summary.total, 333);
 });
 
+test('week score tally recovers a score entered in the quests field', () => {
+  const { state, memberResultsScoreSummary, currentCompetitionSummary } = loadApp();
+  state.data = fullData({
+    settings: { questsMax: 24 },
+    members: [
+      { id: 'm1', name: 'Ada', active: true, role: 'Member', questCount: 18, flowerIds: [], flowerBonuses: {} },
+    ],
+  });
+
+  const memberResults = [
+    { memberId: 'm1', finalScore: null, questsCompleted: 7302, questDetail: [] },
+    { memberId: 'm2', finalScore: 111, questsCompleted: 3, questDetail: [] },
+  ];
+  const summary = memberResultsScoreSummary(memberResults);
+  const current = currentCompetitionSummary({ memberResults });
+
+  assert.equal(summary.hasScores, true);
+  assert.equal(summary.total, 7413);
+  assert.equal(current.score, 7413);
+  assert.equal(current.questsCompleted, 0);
+});
+
 test('member result average quest score divides score by quest count', () => {
   const { memberAverageQuestScore, fmtAverageQuestScore, fmtAverageQuestPointsWithHalf } = loadApp();
 

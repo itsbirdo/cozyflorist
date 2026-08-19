@@ -96,6 +96,17 @@ function fmtAverageQuestPointsWithHalf(result) {
   return `${fmt(avg)} (${fmt(half)})`;
 }
 
+function normalizedMemberResult(result) {
+  if (!result) return {};
+  const score = optNum(result.finalScore);
+  const quests = optNum(result.questsCompleted);
+  const maxQuests = optNum(state.data?.settings?.questsMax) || 24;
+  if (score === null && quests !== null && quests > maxQuests) {
+    return { ...result, finalScore: quests, questsCompleted: null };
+  }
+  return result;
+}
+
 function ordinal(n) {
   if (n === null || n === undefined || n === '') return '—';
   n = Number(n);
@@ -1288,9 +1299,10 @@ function ensureWeekDraft(c) {
   if (ui.weekDraft.compId === c.id) return;
   const results = {};
   for (const r of c.memberResults || []) {
+    const normalized = normalizedMemberResult(r);
     results[r.memberId] = {
-      finalScore: r.finalScore, questsCompleted: r.questsCompleted,
-      questDetail: (r.questDetail || []).map(q => ({ ...q })),
+      finalScore: normalized.finalScore, questsCompleted: normalized.questsCompleted,
+      questDetail: (normalized.questDetail || []).map(q => ({ ...q })),
     };
   }
   ui.weekDraft = { compId: c.id, results };
@@ -1344,12 +1356,12 @@ function mergedMemberResultsForSave(c) {
   return [...merged.values()];
 }
 function memberResultsScoreSummary(memberResults) {
-  const scores = memberResults.map(r => r.finalScore).filter(v => v !== null && v !== undefined);
+  const scores = memberResults.map(r => normalizedMemberResult(r).finalScore).filter(v => v !== null && v !== undefined);
   return { hasScores: scores.length > 0, total: scores.reduce((sum, score) => sum + Number(score || 0), 0) };
 }
 function currentCompetitionSummary(c) {
   const target = state.data.settings.questsMax || 24;
-  const results = new Map((c.memberResults || []).map(r => [r.memberId, r]));
+  const results = new Map((c.memberResults || []).map(r => [r.memberId, normalizedMemberResult(r)]));
   const resultScore = memberResultsScoreSummary(c.memberResults || []);
   const members = state.data.members
     .filter(m => m.active)

@@ -364,18 +364,26 @@ function sanitizeCompetitionPatch(body, existing) {
     const memberIds = new Set(data.members.map(m => m.id));
     c.memberResults = body.memberResults.slice(0, 200)
       .filter(r => memberIds.has(r.memberId))
-      .map(r => ({
-        memberId: r.memberId,
-        finalScore: optNum(r.finalScore),
-        questsCompleted: optNum(r.questsCompleted),
-        questDetail: Array.isArray(r.questDetail)
-          ? r.questDetail.slice(0, 40).map(q => ({
-              base: optNum(q.base) ?? 0,
-              maxed: Boolean(q.maxed),
-              bonus: optNum(q.bonus) ?? 0,
-            }))
-          : [],
-      }));
+      .map(r => {
+        let finalScore = optNum(r.finalScore);
+        let questsCompleted = optNum(r.questsCompleted);
+        if (finalScore === null && questsCompleted !== null && questsCompleted > (data.settings.questsMax || 24)) {
+          finalScore = questsCompleted;
+          questsCompleted = null;
+        }
+        return {
+          memberId: r.memberId,
+          finalScore,
+          questsCompleted,
+          questDetail: Array.isArray(r.questDetail)
+            ? r.questDetail.slice(0, 40).map(q => ({
+                base: optNum(q.base) ?? 0,
+                maxed: Boolean(q.maxed),
+                bonus: optNum(q.bonus) ?? 0,
+              }))
+            : [],
+        };
+      });
   }
   return c;
 }
