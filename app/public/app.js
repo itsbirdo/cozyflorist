@@ -11,12 +11,13 @@ const ui = {
     members: { key: 'name', dir: 1 },
     memberFlowers: { key: 'points', dir: -1 },
     flowers: { key: 'points', dir: -1 },
+    singleOwnerFlowers: { key: 'name', dir: 1 },
     rivals: { key: 'score', dir: -1 },
     weekCompetitors: { key: 'placement', dir: 1 },
     weekMemberResults: { key: 'name', dir: 1 },
     competitionRemaining: { key: 'name', dir: 1 },
   },
-  search: { summary: '', members: '', flowers: '', rivals: '', questFlowers: '' },
+  search: { summary: '', members: '', flowers: '', rivals: '', questFlowers: '', singleOwnerFlowers: '' },
   filters: { summaryFlower: '', membersRole: '', showInactive: false, flowersRarity: '' },
   weekDraft: { compId: null, results: {} }, // admin edit draft for a week's member results
   rivalsWeekId: null, // which competition week the Rivals estimate cards show
@@ -334,6 +335,7 @@ const TABS = [
   { hash: '#/summary', label: 'Summary', ico: '📋' },
   { hash: '#/members', label: 'Members', ico: '👥' },
   { hash: '#/flowers', label: 'Flowers', ico: '🌸' },
+  { hash: '#/reports', label: 'Reports', ico: '📊' },
   { hash: '#/weeks', label: 'Weeks', ico: '🏆' },
   { hash: '#/rivals', label: 'Rivals', ico: '⚔️' },
   { hash: '#/settings', label: 'Settings', ico: '⚙️' },
@@ -1174,6 +1176,170 @@ function flowerFormDialog(flower) {
       () => flower ? api(`/api/flowers/${flower.id}`, 'PUT', body) : api('/api/flowers', 'POST', body),
       flower ? 'Flower saved' : 'Flower added');
     if (ok) dlg.close();
+  });
+}
+
+// ---------------------------------------------------------------- reports --
+
+function singleOwnerFlowerRows() {
+  const q = ui.search.singleOwnerFlowers.toLowerCase().trim();
+  const rows = state.data.flowers
+    .map(flower => {
+      const owners = flowerOwners(flower.id);
+      const owner = owners[0] || null;
+      return { flower, owner, ownerCount: owners.length, bonus: owner ? flowerBonus(owner, flower.id) : 0 };
+    })
+    .filter(row => row.ownerCount === 1)
+    .filter(row => !q ||
+      row.flower.name.toLowerCase().includes(q) ||
+      row.owner.name.toLowerCase().includes(q) ||
+      (row.flower.rarity || '').toLowerCase().includes(q));
+
+  const { key, dir } = ui.sort.singleOwnerFlowers;
+  const val = row => ({
+    name: row.flower.name,
+    rarity: rarityRank(row.flower.rarity),
+    points: row.flower.points,
+    owner: row.owner.name,
+    bonus: row.bonus,
+    total: (row.flower.points || 0) + row.bonus,
+  })[key];
+  return rows.sort((a, b) => dir * cmp(val(a), val(b)) || cmp(a.flower.name, b.flower.name));
+}
+
+function singleOwnerFlowerReportExportRows(rows) {
+  return [
+    ['Flower', 'Rarity', 'Points', 'Sole owner', 'Bonus', 'Total'],
+    ...rows.map(row => [
+      row.flower.name,
+      row.flower.rarity || '',
+      row.flower.points ?? '',
+      row.owner.name,
+      row.bonus || '',
+      (row.flower.points || 0) + row.bonus,
+    ]),
+  ];
+}
+
+function singleOwnerFlowerReportCsv(rows) {
+  return singleOwnerFlowerReportExportRows(rows).map(row => row.map(csvCell).join(',')).join('\n');
+}
+
+function renderReports() {
+  const rows = singleOwnerFlowerRows();
+  const totalUnique = state.data.flowers.filter(f => flowerOwners(f.id).length === 1).length;
+  const totalShared = state.data.flowers.filter(f => flowerOwners(f.id).length > 1).length;
+  const totalUnowned = state.data.flowers.filter(f => flowerOwners(f.id).length === 0).length;
+
+  app().innerHTML = chrome(`
+    <h1>Reports</h1>
+    <div class="cardgrid">
+      <div class="card stat">
+        <div class="num">${fmtNum(totalUnique)}</div>
+        <div class="lbl">Single-owner flowers</div>
+        <div class="sub">owned by exactly one member</div>
+      </div>
+      <div class="card stat">
+        <div class="num">${fmtNum(totalShared)}</div>
+        <div class="lbl">Shared flowers</div>
+        <div class="sub">owned by 2+ members</div>
+      </div>
+      <div class="card stat">
+        <div class="num">${fmtNum(totalUnowned)}</div>
+        <div class="lbl">Unowned flowers</div>
+        <div class="sub">in catalogue only</div>
+      </div>
+      <div class="card stat">
+        <div class="num">${fmtNum(state.data.flowers.length)}</div>
+        <div class="lbl">Catalogue</div>
+        <div class="sub">flower types</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-head">
+        <div>
+          <h2 style="margin-top:0">Flowers with one owner</h2>
+          <p class="muted small">Flowers currently owned by exactly one guild member.</p>
+        </div>
+        <button class="btn secondary small" id="exportsingleowner" type="button" ${rows.length ? '' : 'disabled'}>Export CSV</button>
+      </div>
+      <div class="toolbar">
+        <input type="search" id="singleownersearch" placeholder="Search flower, owner, rarity…" value="${esc(ui.search.singleOwnerFlowers)}">
+        <label class="mobile-only mobile-sort">Sort
+          <select id="singleownersort">
+            <option value="name:1" ${ui.sort.singleOwnerFlowers.key === 'name' && ui.sort.singleOwnerFlowers.dir === 1 ? 'selected' : ''}>Flower A-Z</option>
+            <option value="owner:1" ${ui.sort.singleOwnerFlowers.key === 'owner' && ui.sort.singleOwnerFlowers.dir === 1 ? 'selected' : ''}>Owner A-Z</option>
+            <option value="points:-1" ${ui.sort.singleOwnerFlowers.key === 'points' && ui.sort.singleOwnerFlowers.dir === -1 ? 'selected' : ''}>Points high-low</option>
+            <option value="points:1" ${ui.sort.singleOwnerFlowers.key === 'points' && ui.sort.singleOwnerFlowers.dir === 1 ? 'selected' : ''}>Points low-high</option>
+            <option value="rarity:-1" ${ui.sort.singleOwnerFlowers.key === 'rarity' && ui.sort.singleOwnerFlowers.dir === -1 ? 'selected' : ''}>Rarity high-low</option>
+            <option value="total:-1" ${ui.sort.singleOwnerFlowers.key === 'total' && ui.sort.singleOwnerFlowers.dir === -1 ? 'selected' : ''}>Total high-low</option>
+          </select>
+        </label>
+      </div>
+      ${rows.length ? `
+        <div class="tablewrap desktop-only">
+          <table data-sortview="singleOwnerFlowers">
+            <thead><tr>
+              <th data-key="name" class="${sortArrow('singleOwnerFlowers', 'name')}">Flower</th>
+              <th data-key="rarity" class="${sortArrow('singleOwnerFlowers', 'rarity')}">Rarity</th>
+              <th data-key="points" class="${sortArrow('singleOwnerFlowers', 'points')}">Points</th>
+              <th data-key="owner" class="${sortArrow('singleOwnerFlowers', 'owner')}">Sole owner</th>
+              <th data-key="bonus" class="${sortArrow('singleOwnerFlowers', 'bonus')}">Bonus</th>
+              <th data-key="total" class="${sortArrow('singleOwnerFlowers', 'total')}">Total</th>
+            </tr></thead>
+            <tbody>${rows.map(row => `
+              <tr class="rowlink" data-go="#/members/${row.owner.id}">
+                <td><strong>${esc(row.flower.name)}</strong></td>
+                <td>${rarityTag(row.flower.rarity)}</td>
+                <td>${fmtNum(row.flower.points)}</td>
+                <td>${roleName(row.owner)}</td>
+                <td>${fmtNum(row.bonus || null)}</td>
+                <td><strong>${fmtNum((row.flower.points || 0) + row.bonus)}</strong></td>
+              </tr>`).join('')}</tbody>
+          </table>
+        </div>
+        <div class="mobilecards">
+          ${rows.map(row => `
+            <div class="mobilecard rowlink" data-go="#/members/${row.owner.id}">
+              <div class="head">
+                <div>
+                  <strong>${esc(row.flower.name)}</strong>
+                  <div class="muted small">${rarityTag(row.flower.rarity)} · ${fmtNum(row.flower.points)} points</div>
+                </div>
+                <div class="metric">
+                  <strong>${fmtNum((row.flower.points || 0) + row.bonus)}</strong>
+                  <div class="muted small">total</div>
+                </div>
+              </div>
+              <div class="meta">
+                <span class="chip">Owner ${esc(row.owner.name)}</span>
+                ${row.bonus ? `<span class="chip rose">+${fmtNum(row.bonus)} bonus</span>` : ''}
+              </div>
+            </div>`).join('')}
+        </div>`
+        : `<div class="empty"><div class="big">📊</div>${ui.search.singleOwnerFlowers ? 'No single-owner flowers match.' : 'No single-owner flowers yet.'}</div>`}
+    </div>
+  `, '#/reports');
+  bindChrome();
+  bindSortHeaders('singleOwnerFlowers', renderReports);
+  document.querySelectorAll('[data-go]').forEach(el =>
+    el.addEventListener('click', () => { location.hash = el.dataset.go; }));
+  $('#singleownersearch')?.addEventListener('input', e => {
+    const start = e.target.selectionStart ?? e.target.value.length;
+    const end = e.target.selectionEnd ?? start;
+    ui.search.singleOwnerFlowers = e.target.value;
+    renderReports();
+    restoreInputFocus('#singleownersearch', start, end);
+  });
+  $('#singleownersort')?.addEventListener('change', e => {
+    const [key, dir] = e.target.value.split(':');
+    ui.sort.singleOwnerFlowers = { key, dir: Number(dir) };
+    renderReports();
+  });
+  $('#exportsingleowner')?.addEventListener('click', () => {
+    downloadFile('single-owner-flowers.csv', singleOwnerFlowerReportCsv(rows));
+    toast('Single-owner flowers exported');
   });
 }
 
@@ -2472,6 +2638,7 @@ function render() {
     case 'members': id ? renderMemberDetail(id) : renderMembers(); break;
     case 'summary': renderSummary(); break;
     case 'flowers': renderFlowers(); break;
+    case 'reports': renderReports(); break;
     case 'weeks': id ? renderWeekDetail(id) : renderWeeks(); break;
     case 'rivals': id ? renderRivalDetail(id) : renderRivals(); break;
     case 'settings': renderSettings(); break;

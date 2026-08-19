@@ -57,6 +57,9 @@ globalThis.__guildHq = {
   autoPlacementPatch,
   scoreBarWidth,
   scoreComparisonEntries,
+  singleOwnerFlowerRows,
+  singleOwnerFlowerReportExportRows,
+  singleOwnerFlowerReportCsv,
   usefulLinksHtml,
 };
 `);
@@ -119,6 +122,36 @@ test('finds the alphabetically first owner for a shared flower', () => {
 
   assert.equal(firstFlowerOwnerName('rose'), 'Ada');
   assert.deepEqual(flowerOwners('rose').map(m => m.name), ['Zoe', 'Ada']);
+});
+
+test('single-owner flower report lists flowers owned by exactly one member', () => {
+  const { state, ui, singleOwnerFlowerRows } = loadApp();
+  state.data = sampleData();
+
+  assert.deepEqual(
+    singleOwnerFlowerRows().map(row => [row.flower.name, row.owner.name, row.bonus]),
+    [['Lily', 'Zoe', 0], ['Tulip', 'Ada', 0]],
+  );
+
+  ui.search.singleOwnerFlowers = 'ada';
+  assert.deepEqual(
+    singleOwnerFlowerRows().map(row => [row.flower.name, row.owner.name]),
+    [['Tulip', 'Ada']],
+  );
+});
+
+test('single-owner flower report exports CSV rows', () => {
+  const { state, singleOwnerFlowerRows, singleOwnerFlowerReportExportRows, singleOwnerFlowerReportCsv } = loadApp();
+  state.data = sampleData();
+
+  const rows = singleOwnerFlowerRows();
+
+  assert.equal(JSON.stringify(singleOwnerFlowerReportExportRows(rows)), JSON.stringify([
+    ['Flower', 'Rarity', 'Points', 'Sole owner', 'Bonus', 'Total'],
+    ['Lily', 'SSR', 120, 'Zoe', '', 120],
+    ['Tulip', 'SR', 90, 'Ada', '', 90],
+  ]));
+  assert.equal(singleOwnerFlowerReportCsv(rows), 'Flower,Rarity,Points,Sole owner,Bonus,Total\nLily,SSR,120,Zoe,,120\nTulip,SR,90,Ada,,90');
 });
 
 test('member summary top flowers use highest effective points first', () => {
