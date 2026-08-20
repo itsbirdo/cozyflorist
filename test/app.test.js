@@ -32,6 +32,7 @@ globalThis.__guildHq = {
   rarityForPoints,
   sortWeekCompetitorRows,
   sortWeekMemberResultRows,
+  filterWeekMemberResultRows,
   mergedMemberResultsForSave,
   ensureWeekDraft,
   draftForWeek,
@@ -631,6 +632,20 @@ test('week member results sort by average quest score', () => {
     JSON.stringify(rows.map(row => row.member.name)),
     JSON.stringify(['Mia', 'Zoe', 'Ada']),
   );
+});
+
+test('week member results filter by member, role, and result values', () => {
+  const { filterWeekMemberResultRows } = loadApp();
+  const rows = [
+    { member: { name: 'Zoe', role: 'Member' }, result: { finalScore: 800, questsCompleted: 20, questDetail: [] } },
+    { member: { name: 'Ada', role: 'Elite' }, result: { finalScore: 420, questsCompleted: 12, questDetail: [{ flowerName: 'Rose', score: 60, count: 2 }] } },
+    { member: { name: 'Mia', role: 'Elder' }, result: { finalScore: 480, questsCompleted: 8, questDetail: [] } },
+  ];
+
+  assert.deepEqual(filterWeekMemberResultRows(rows, 'ada').map(row => row.member.name), ['Ada']);
+  assert.deepEqual(filterWeekMemberResultRows(rows, 'elder').map(row => row.member.name), ['Mia']);
+  assert.deepEqual(filterWeekMemberResultRows(rows, '800').map(row => row.member.name), ['Zoe']);
+  assert.deepEqual(filterWeekMemberResultRows(rows, 'rose').map(row => row.member.name), ['Ada']);
 });
 
 test('score comparison bar widths scale by score', () => {

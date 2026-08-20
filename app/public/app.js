@@ -17,7 +17,7 @@ const ui = {
     weekMemberResults: { key: 'name', dir: 1 },
     competitionRemaining: { key: 'name', dir: 1 },
   },
-  search: { summary: '', members: '', flowers: '', rivals: '', questFlowers: '', singleOwnerFlowers: '' },
+  search: { summary: '', members: '', flowers: '', rivals: '', questFlowers: '', singleOwnerFlowers: '', weekMemberResults: '' },
   filters: { summaryFlower: '', membersRole: '', showInactive: false, flowersRarity: '' },
   weekDraft: { compId: null, results: {} }, // admin edit draft for a week's member results
   rivalsWeekId: null, // which competition week the Rivals estimate cards show
@@ -1444,6 +1444,22 @@ function sortWeekMemberResultRows(rows) {
   })[key];
   return [...rows].sort((a, b) => dir * cmp(val(a), val(b)) || cmp(a.member.name, b.member.name));
 }
+function filterWeekMemberResultRows(rows, query) {
+  const q = String(query || '').trim().toLowerCase();
+  if (!q) return rows;
+  return rows.filter(row => {
+    const m = row.member;
+    const r = row.result || {};
+    return [
+      m.name,
+      m.role,
+      r.questsCompleted,
+      r.finalScore,
+      memberAverageQuestScore(r),
+      ...(r.questDetail || []).flatMap(detail => [detail.flowerName, detail.score, detail.count]),
+    ].some(value => String(value ?? '').toLowerCase().includes(q));
+  });
+}
 function scoreBarColor(i) {
   return ['#c95f7d', '#5f8a5e', '#5a78c9', '#c99a3a', '#8d63b8', '#d7784f', '#4b9d9a', '#b35f86', '#6f7f4f', '#7b78c9'][i % 10];
 }
@@ -1693,10 +1709,11 @@ function renderWeekDetail(id) {
     .filter(m => m.active || withData.has(m.id))
     .sort((a, b) => cmp(a.name, b.name));
   const saved = new Map((c.memberResults || []).map(r => [r.memberId, r]));
-  const memberResultRows = sortWeekMemberResultRows(resultMembers.map(m => ({
+  const allMemberResultRows = sortWeekMemberResultRows(resultMembers.map(m => ({
     member: m,
     result: isAdmin() ? draftFor(m.id) : (saved.get(m.id) || {}),
   })));
+  const memberResultRows = filterWeekMemberResultRows(allMemberResultRows, ui.search.weekMemberResults);
 
   app().innerHTML = chrome(`
     <a href="#/weeks" class="backlink">← Weeks</a>
@@ -1779,7 +1796,10 @@ function renderWeekDetail(id) {
 
     <div class="card">
       <h2 style="margin-top:0">Member results</h2>
-      ${memberResultRows.length ? `
+      ${allMemberResultRows.length ? `
+        <div class="toolbar">
+          <input type="search" id="weekmemberresultsearch" placeholder="Search member, role, score, quests…" value="${esc(ui.search.weekMemberResults)}">
+        </div>
         <label class="mobile-only mobile-sort">Sort
           <select id="weekmemberresultsort">
             <option value="name:1" ${ui.sort.weekMemberResults.key === 'name' && ui.sort.weekMemberResults.dir === 1 ? 'selected' : ''}>Member A-Z</option>
@@ -1792,6 +1812,7 @@ function renderWeekDetail(id) {
             <option value="average:1" ${ui.sort.weekMemberResults.key === 'average' && ui.sort.weekMemberResults.dir === 1 ? 'selected' : ''}>Average quest score low-high</option>
           </select>
         </label>
+        ${memberResultRows.length ? `
         <div class="tablewrap desktop-only"><table class="member-results-table" data-sortview="weekMemberResults">
           <thead><tr>
             <th data-key="name" class="${sortArrow('weekMemberResults', 'name')}">Member</th>
@@ -1859,6 +1880,7 @@ function renderWeekDetail(id) {
               </div>`;
           }).join('')}
         </div>
+        ` : '<p class="muted">No member results match that search.</p>'}
         ${isAdmin() ? `
           <button class="btn" id="saveresults">Save results</button>
           <p class="muted small">Rows left fully blank aren't stored. Quest detail is optional.</p>` : ''}
@@ -1882,6 +1904,14 @@ function renderWeekDetail(id) {
     const [key, dir] = e.target.value.split(':');
     ui.sort.weekMemberResults = { key, dir: Number(dir) };
     renderWeekDetail(id);
+  });
+  $('#weekmemberresultsearch')?.addEventListener('input', e => {
+    syncWeekDraftFromInputs(c);
+    const start = e.target.selectionStart ?? e.target.value.length;
+    const end = e.target.selectionEnd ?? start;
+    ui.search.weekMemberResults = e.target.value;
+    renderWeekDetail(id);
+    restoreInputFocus('#weekmemberresultsearch', start, end);
   });
 
   $('#editweek')?.addEventListener('click', () => weekFormDialog(c));
