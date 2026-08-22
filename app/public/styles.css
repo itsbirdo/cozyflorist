@@ -327,6 +327,7 @@ hr { border: none; border-top: 1px solid var(--line); margin: 14px 0; }
   .desktop-only { display: none !important; }
   .mobile-only { display: flex; }
   .mobilecards { display: grid; gap: 10px; margin: 10px 0; }
+  #members-table { min-height: 55svh; }
   .flowerlist { min-width: 0; }
   .flowerpill { white-space: normal; }
   .mobile-sort { width: 100%; }
