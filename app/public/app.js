@@ -482,19 +482,19 @@ function renderDashboard() {
           <div class="tablewrap remaining-table-wrap"><table class="remaining-table" data-sortview="competitionRemaining">
             <thead><tr>
               <th data-key="name" class="${sortArrow('competitionRemaining', 'name')}">Member</th>
+              <th data-key="remaining" class="${sortArrow('competitionRemaining', 'remaining')}">Quests Left</th>
               <th data-key="completed" class="${sortArrow('competitionRemaining', 'completed')}">Quests Completed</th>
               <th data-key="score" class="${sortArrow('competitionRemaining', 'score')}">Score</th>
               <th data-key="average" class="${sortArrow('competitionRemaining', 'average')}">Ave. Quest Points</th>
-              <th data-key="remaining" class="${sortArrow('competitionRemaining', 'remaining')}">Quests Left</th>
             </tr></thead>
             <tbody>
               ${remainingRows.map(row => `
                 <tr>
                   <td>${roleName(row.member)}</td>
+                  <td><strong>${row.remaining}</strong></td>
                   <td>${row.completed}</td>
                   <td>${fmtNum(row.result.finalScore)}</td>
                   <td>${fmtAverageQuestPointsWithHalf(row.result)}</td>
-                  <td><strong>${row.remaining}</strong></td>
                 </tr>`).join('')}
             </tbody>
           </table></div>`
