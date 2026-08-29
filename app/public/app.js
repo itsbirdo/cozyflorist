@@ -552,35 +552,7 @@ function renderDashboard() {
               <button class="btn secondary small" id="exportquestflowersexcel" type="button">Export Excel</button>
               <button class="btn secondary small" id="copyquestflowersheets" type="button">Google Sheets</button>
             </div>
-            ${visibleQuestFlowerRows.length ? `
-            <div class="tablewrap">
-              <table class="quest-flower-table">
-                <thead><tr>
-                  <th>Flower</th>
-                  <th>Points</th>
-                  <th>Member</th>
-                </tr></thead>
-                <tbody>
-                  ${visibleQuestFlowerRows.map(row => `
-                    <tr>
-                      <td>
-                        <strong>${esc(row.flower.name)}</strong>
-                        ${rarityTag(row.flower.rarity)}
-                      </td>
-                      <td><strong>${fmtNum(row.points)}</strong></td>
-                      <td class="wrap">
-                        <div class="flowerlist">${row.members.map(item => `
-                          <span class="flowerpill">
-                            ${roleName(item.member)}
-                            <span class="muted small">${item.questsLeft} left${item.bonus ? ` · +${fmtNum(item.bonus)}` : ''}</span>
-                          </span>
-                        `).join('')}</div>
-                      </td>
-                    </tr>`).join('')}
-                </tbody>
-              </table>
-            </div>`
-            : '<p class="muted">No quest flowers match that search.</p>'}`
+            <div id="questflowerresults">${questFlowerReportResultsHtml(visibleQuestFlowerRows)}</div>`
             : '<p class="muted">No flowers are recorded for members with quests left.</p>'}`
         : '<p class="muted">Add a competition week to see which members still need quest flowers.</p>'}
     </div>
@@ -593,20 +565,27 @@ function renderDashboard() {
     renderDashboard();
   });
   $('#questflowersearch')?.addEventListener('input', e => {
-    const start = e.target.selectionStart ?? e.target.value.length;
-    const end = e.target.selectionEnd ?? start;
     ui.search.questFlowers = e.target.value;
-    renderDashboard();
-    restoreInputFocus('#questflowersearch', start, end);
+    $('#questflowerresults').innerHTML = questFlowerReportResultsHtml(
+      filteredQuestFlowerReportRows(questFlowerRows, ui.search.questFlowers),
+    );
   });
   $('#exportquestflowers')?.addEventListener('click', () => {
-    exportQuestFlowerReport(latest, visibleQuestFlowerRows, ui.search.questFlowers);
+    exportQuestFlowerReport(
+      latest,
+      filteredQuestFlowerReportRows(questFlowerRows, ui.search.questFlowers),
+      ui.search.questFlowers,
+    );
   });
   $('#exportquestflowersexcel')?.addEventListener('click', () => {
-    exportQuestFlowerReportExcel(latest, visibleQuestFlowerRows, ui.search.questFlowers);
+    exportQuestFlowerReportExcel(
+      latest,
+      filteredQuestFlowerReportRows(questFlowerRows, ui.search.questFlowers),
+      ui.search.questFlowers,
+    );
   });
   $('#copyquestflowersheets')?.addEventListener('click', async () => {
-    await copyQuestFlowerReportForSheets(visibleQuestFlowerRows);
+    await copyQuestFlowerReportForSheets(filteredQuestFlowerReportRows(questFlowerRows, ui.search.questFlowers));
   });
 }
 

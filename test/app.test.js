@@ -539,6 +539,16 @@ test('quest flower report can be filtered by flower or member', () => {
   assert.equal(JSON.stringify(filteredQuestFlowerReportRows(rows, 'orchid')), JSON.stringify([]));
 });
 
+test('quest flower report search updates results without replacing the focused input', () => {
+  const script = fs.readFileSync(path.join(__dirname, '..', 'app', 'public', 'app.js'), 'utf8');
+  const handler = script.match(/\$\(('#questflowersearch')\)\?\.addEventListener\('input', e => \{[\s\S]*?\n  \}\);/);
+
+  assert.ok(handler, 'quest flower search input handler should exist');
+  assert.match(handler[0], /questflowerresults/);
+  assert.doesNotMatch(handler[0], /renderDashboard\(\)/);
+  assert.doesNotMatch(handler[0], /restoreInputFocus/);
+});
+
 test('quest flower report exports one csv row per flower member match', () => {
   const { questFlowerReportCsv, questFlowerReportExportRows } = loadApp();
   const rows = [
