@@ -139,6 +139,7 @@ nav.tabs a.active { color: var(--accent); }
 .quest-flower-table td:nth-child(2) { font-size: 1rem; font-variant-numeric: tabular-nums; }
 .quest-flower-table td:nth-child(3) { min-width: 320px; vertical-align: top; }
 .quest-flower-toolbar input { min-width: 220px; }
+.projection-input { width: 76px; min-width: 76px; }
 
 .flowerlist { display: grid; gap: 5px; align-items: start; min-width: 240px; }
 .flowerpill {

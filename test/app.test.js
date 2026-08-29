@@ -59,6 +59,7 @@ globalThis.__guildHq = {
   scoreBarWidth,
   scoreComparisonEntries,
   memberQuestScoreRange,
+  currentWeekProjectionMemberRows,
   currentWeekProjectionRows,
   singleOwnerFlowerRows,
   singleOwnerFlowerReportExportRows,
@@ -499,6 +500,41 @@ test('current week projection estimates min medium and max totals for 18 and 24 
     JSON.stringify([
       { target: 18, currentScore: 1400, memberCount: 1, questsNeeded: 8, min: 1720, medium: 1816, max: 1904 },
       { target: 24, currentScore: 1400, memberCount: 2, questsNeeded: 20, min: 2260, medium: 2428, max: 2582 },
+    ]),
+  );
+});
+
+test('current week projection can override member tasks and exclude members', () => {
+  const { state, ui, currentWeekProjectionMemberRows, currentWeekProjectionRows } = loadApp();
+  state.data = fullData({
+    settings: { questsMin: 18, questsMax: 24, maxMultiplier: 2 },
+    members: [
+      { id: 'm1', name: 'Ada', active: true, role: 'Member', questCount: 18, flowerIds: ['rose', 'lily'], flowerBonuses: { rose: 3 } },
+      { id: 'm2', name: 'Zoe', active: true, role: 'Member', questCount: 18, flowerIds: ['tulip'], flowerBonuses: {} },
+    ],
+    flowers: [
+      { id: 'rose', name: 'Rose', rarity: 'UR', points: 30 },
+      { id: 'lily', name: 'Lily', rarity: 'R', points: 20 },
+      { id: 'tulip', name: 'Tulip', rarity: 'SR', points: 25 },
+    ],
+  });
+  const week = {
+    id: 'w1',
+    memberResults: [
+      { memberId: 'm1', finalScore: 500, questsCompleted: 10, questDetail: [] },
+      { memberId: 'm2', finalScore: 900, questsCompleted: 18, questDetail: [] },
+    ],
+  };
+
+  currentWeekProjectionMemberRows(week);
+  ui.projectionDraft.tasks.m1 = { 18: 2, 24: 5 };
+  ui.projectionDraft.excluded.m2 = true;
+
+  assert.equal(
+    JSON.stringify(currentWeekProjectionRows(week, currentWeekProjectionMemberRows(week))),
+    JSON.stringify([
+      { target: 18, currentScore: 1400, memberCount: 1, questsNeeded: 2, min: 1480, medium: 1504, max: 1526 },
+      { target: 24, currentScore: 1400, memberCount: 1, questsNeeded: 5, min: 1600, medium: 1660, max: 1715 },
     ]),
   );
 });

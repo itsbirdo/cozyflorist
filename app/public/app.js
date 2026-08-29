@@ -20,6 +20,7 @@ const ui = {
   search: { summary: '', members: '', flowers: '', rivals: '', questFlowers: '', singleOwnerFlowers: '', weekMemberResults: '' },
   filters: { summaryFlower: '', membersRole: '', showInactive: false, flowersRarity: '' },
   weekDraft: { compId: null, results: {} }, // admin edit draft for a week's member results
+  projectionDraft: { compId: null, excluded: {}, tasks: {} }, // report-only planning overrides
   rivalsWeekId: null, // which competition week the Rivals estimate cards show
   rivalsShowAll: false,
 };
@@ -1208,13 +1209,78 @@ function singleOwnerFlowerReportCsv(rows) {
   return singleOwnerFlowerReportExportRows(rows).map(row => row.map(csvCell).join(',')).join('\n');
 }
 
+function currentWeekProjectionSummaryHtml(rows) {
+  return `
+    <div class="tablewrap">
+      <table>
+        <thead><tr>
+          <th>Target</th>
+          <th>Members left</th>
+          <th>Quests left</th>
+          <th>Minimum</th>
+          <th>Medium</th>
+          <th>Maximum</th>
+        </tr></thead>
+        <tbody>
+          ${rows.map(row => `
+            <tr>
+              <td><strong>${row.target} quests</strong></td>
+              <td>${fmtNum(row.memberCount)}</td>
+              <td>${fmtNum(row.questsNeeded)}</td>
+              <td>${fmtNum(row.min)}</td>
+              <td><strong>${fmtNum(row.medium)}</strong></td>
+              <td>${fmtNum(row.max)}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <p class="muted small">Current score: ${fmtNum(rows[0]?.currentScore ?? 0)}</p>`;
+}
+
+function currentWeekProjectionBreakdownHtml(memberRows, targets) {
+  if (!memberRows.length) return '<p class="muted">All active members have reached the current quest targets.</p>';
+  return `
+    <div class="tablewrap">
+      <table>
+        <thead><tr>
+          <th>Include</th>
+          <th>Member</th>
+          <th>Done</th>
+          <th>Score</th>
+          <th>Minimum</th>
+          <th>Medium</th>
+          <th>Maximum</th>
+          ${targets.map(target => `<th>Tasks to ${target}</th>`).join('')}
+        </tr></thead>
+        <tbody>
+          ${memberRows.map(row => `
+            <tr>
+              <td><input type="checkbox" data-projectioninclude="${row.member.id}" ${row.included ? 'checked' : ''} title="Include"></td>
+              <td>${roleName(row.member)}</td>
+              <td>${fmtNum(row.completed)}</td>
+              <td>${fmtNum(row.score)}</td>
+              <td>${fmtNum(row.range.min)}</td>
+              <td>${fmtNum(row.range.medium)}</td>
+              <td>${fmtNum(row.range.max)}</td>
+              ${targets.map(target => `
+                <td>
+                  <input class="projection-input" type="number" inputmode="numeric" min="0" max="${target}" data-projectionmember="${row.member.id}" data-projectiontarget="${target}" value="${row.tasks[target]}">
+                </td>`).join('')}
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
 function renderReports() {
   const rows = singleOwnerFlowerRows();
   const totalUnique = state.data.flowers.filter(f => flowerOwners(f.id).length === 1).length;
   const totalShared = state.data.flowers.filter(f => flowerOwners(f.id).length > 1).length;
   const totalUnowned = state.data.flowers.filter(f => flowerOwners(f.id).length === 0).length;
   const latest = [...state.data.competitions].sort((a, b) => cmp(b.weekStart, a.weekStart))[0];
-  const projectionRows = currentWeekProjectionRows(latest);
+  const projectionMemberRows = currentWeekProjectionMemberRows(latest);
+  const projectionRows = currentWeekProjectionRows(latest, projectionMemberRows);
+  const projectionTargets = currentWeekProjectionTargets();
 
   app().innerHTML = chrome(`
     <h1>Reports</h1>
@@ -1249,30 +1315,9 @@ function renderReports() {
         </div>
       </div>
       ${latest ? `
-        <div class="tablewrap">
-          <table>
-            <thead><tr>
-              <th>Target</th>
-              <th>Members left</th>
-              <th>Quests left</th>
-              <th>Minimum</th>
-              <th>Medium</th>
-              <th>Maximum</th>
-            </tr></thead>
-            <tbody>
-              ${projectionRows.map(row => `
-                <tr>
-                  <td><strong>${row.target} quests</strong></td>
-                  <td>${fmtNum(row.memberCount)}</td>
-                  <td>${fmtNum(row.questsNeeded)}</td>
-                  <td>${fmtNum(row.min)}</td>
-                  <td><strong>${fmtNum(row.medium)}</strong></td>
-                  <td>${fmtNum(row.max)}</td>
-                </tr>`).join('')}
-            </tbody>
-          </table>
-        </div>
-        <p class="muted small">Current score: ${fmtNum(projectionRows[0]?.currentScore ?? 0)}</p>`
+        <div id="projection-summary">${currentWeekProjectionSummaryHtml(projectionRows)}</div>
+        <h3>Individual breakdown</h3>
+        ${currentWeekProjectionBreakdownHtml(projectionMemberRows, projectionTargets)}`
         : '<p class="muted">Add a competition week to see score projections.</p>'}
     </div>
 
@@ -1345,6 +1390,22 @@ function renderReports() {
   bindSortHeaders('singleOwnerFlowers', renderReports);
   document.querySelectorAll('[data-go]').forEach(el =>
     el.addEventListener('click', () => { location.hash = el.dataset.go; }));
+  document.querySelectorAll('[data-projectionmember]').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const memberId = inp.dataset.projectionmember;
+      const target = inp.dataset.projectiontarget;
+      ui.projectionDraft.tasks[memberId] = { ...(ui.projectionDraft.tasks[memberId] || {}), [target]: inp.value };
+      const memberRows = currentWeekProjectionMemberRows(latest);
+      $('#projection-summary').innerHTML = currentWeekProjectionSummaryHtml(currentWeekProjectionRows(latest, memberRows));
+    });
+  });
+  document.querySelectorAll('[data-projectioninclude]').forEach(inp => {
+    inp.addEventListener('change', () => {
+      ui.projectionDraft.excluded[inp.dataset.projectioninclude] = !inp.checked;
+      const memberRows = currentWeekProjectionMemberRows(latest);
+      $('#projection-summary').innerHTML = currentWeekProjectionSummaryHtml(currentWeekProjectionRows(latest, memberRows));
+    });
+  });
   $('#singleownersearch')?.addEventListener('input', e => {
     const start = e.target.selectionStart ?? e.target.value.length;
     const end = e.target.selectionEnd ?? start;
@@ -1616,30 +1677,66 @@ function memberQuestScoreRange(m) {
     : Math.round((scores[mid - 1] + scores[mid]) / 2);
   return { min: scores[0], medium, max: scores[scores.length - 1] };
 }
-function currentWeekProjectionRows(c) {
-  if (!c) return [];
-  const resultMap = new Map((c.memberResults || []).map(r => [r.memberId, normalizedMemberResult(r)]));
-  const resultScore = memberResultsScoreSummary(c.memberResults || []);
-  const currentScore = resultScore.hasScores ? resultScore.total : (optNum(c.ourScore) ?? 0);
-  const targets = [
+function currentWeekProjectionTargets() {
+  return [
     optNum(state.data.settings.questsMin) || 18,
     optNum(state.data.settings.questsMax) || 24,
   ].filter((target, i, arr) => target > 0 && arr.indexOf(target) === i);
+}
+function currentWeekProjectionBaseScore(c) {
+  const resultScore = memberResultsScoreSummary(c?.memberResults || []);
+  return resultScore.hasScores ? resultScore.total : (optNum(c?.ourScore) ?? 0);
+}
+function ensureProjectionDraft(c) {
+  if (ui.projectionDraft.compId === c?.id) return;
+  ui.projectionDraft = { compId: c?.id || null, excluded: {}, tasks: {} };
+}
+function currentWeekProjectionMemberRows(c) {
+  if (!c) return [];
+  ensureProjectionDraft(c);
+  const resultMap = new Map((c.memberResults || []).map(r => [r.memberId, normalizedMemberResult(r)]));
+  const targets = currentWeekProjectionTargets();
 
-  return targets.map(target => {
-    const projected = { min: currentScore, medium: currentScore, max: currentScore };
-    let memberCount = 0, questsNeeded = 0;
-    for (const member of state.data.members.filter(m => m.active)) {
+  return state.data.members
+    .filter(m => m.active)
+    .sort((a, b) => cmp(a.name, b.name))
+    .map(member => {
       const result = resultMap.get(member.id) || {};
       const completed = Math.max(0, optNum(result.questsCompleted) ?? 0);
-      const remaining = Math.max(0, target - completed);
+      const defaults = Object.fromEntries(targets.map(target => [target, Math.max(0, target - completed)]));
+      const draftTasks = ui.projectionDraft.tasks[member.id] || {};
+      const tasks = Object.fromEntries(targets.map(target => {
+        const drafted = optNum(draftTasks[target]);
+        return [target, drafted === null ? defaults[target] : Math.max(0, drafted)];
+      }));
+      return {
+        member,
+        result,
+        completed,
+        score: optNum(result.finalScore) ?? 0,
+        range: memberQuestScoreRange(member),
+        defaults,
+        tasks,
+        included: !ui.projectionDraft.excluded[member.id],
+      };
+    })
+    .filter(row => targets.some(target => row.defaults[target] > 0));
+}
+function currentWeekProjectionRows(c, memberRows = currentWeekProjectionMemberRows(c)) {
+  if (!c) return [];
+  const currentScore = currentWeekProjectionBaseScore(c);
+  return currentWeekProjectionTargets().map(target => {
+    const projected = { min: currentScore, medium: currentScore, max: currentScore };
+    let memberCount = 0, questsNeeded = 0;
+    for (const row of memberRows) {
+      if (!row.included) continue;
+      const remaining = Math.max(0, optNum(row.tasks[target]) ?? 0);
       if (!remaining) continue;
-      const range = memberQuestScoreRange(member);
       memberCount += 1;
       questsNeeded += remaining;
-      projected.min += remaining * range.min;
-      projected.medium += remaining * range.medium;
-      projected.max += remaining * range.max;
+      projected.min += remaining * row.range.min;
+      projected.medium += remaining * row.range.medium;
+      projected.max += remaining * row.range.max;
     }
     return { target, currentScore, memberCount, questsNeeded, ...projected };
   });
