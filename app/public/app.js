@@ -675,11 +675,8 @@ function renderMembers() {
   bindChrome();
   renderMembersTable();
   $('#msearch').addEventListener('input', e => {
-    const start = e.target.selectionStart ?? e.target.value.length;
-    const end = e.target.selectionEnd ?? start;
     ui.search.members = e.target.value;
     renderMembersTable();
-    restoreInputFocus('#msearch', start, end);
   });
   $('#mrole').addEventListener('change', e => { ui.filters.membersRole = e.target.value; renderMembersTable(); });
   $('#minactive').addEventListener('change', e => { ui.filters.showInactive = e.target.checked; renderMembersTable(); });
