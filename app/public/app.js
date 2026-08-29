@@ -1213,6 +1213,8 @@ function renderReports() {
   const totalUnique = state.data.flowers.filter(f => flowerOwners(f.id).length === 1).length;
   const totalShared = state.data.flowers.filter(f => flowerOwners(f.id).length > 1).length;
   const totalUnowned = state.data.flowers.filter(f => flowerOwners(f.id).length === 0).length;
+  const latest = [...state.data.competitions].sort((a, b) => cmp(b.weekStart, a.weekStart))[0];
+  const projectionRows = currentWeekProjectionRows(latest);
 
   app().innerHTML = chrome(`
     <h1>Reports</h1>
@@ -1237,6 +1239,41 @@ function renderReports() {
         <div class="lbl">Catalogue</div>
         <div class="sub">flower types</div>
       </div>
+    </div>
+
+    <div class="card">
+      <div class="section-head">
+        <div>
+          <h2 style="margin-top:0">Current week score projection</h2>
+          ${latest ? `<p class="muted small">${esc(weekLabel(latest))}</p>` : ''}
+        </div>
+      </div>
+      ${latest ? `
+        <div class="tablewrap">
+          <table>
+            <thead><tr>
+              <th>Target</th>
+              <th>Members left</th>
+              <th>Quests left</th>
+              <th>Minimum</th>
+              <th>Medium</th>
+              <th>Maximum</th>
+            </tr></thead>
+            <tbody>
+              ${projectionRows.map(row => `
+                <tr>
+                  <td><strong>${row.target} quests</strong></td>
+                  <td>${fmtNum(row.memberCount)}</td>
+                  <td>${fmtNum(row.questsNeeded)}</td>
+                  <td>${fmtNum(row.min)}</td>
+                  <td><strong>${fmtNum(row.medium)}</strong></td>
+                  <td>${fmtNum(row.max)}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+        <p class="muted small">Current score: ${fmtNum(projectionRows[0]?.currentScore ?? 0)}</p>`
+        : '<p class="muted">Add a competition week to see score projections.</p>'}
     </div>
 
     <div class="card">
@@ -1564,6 +1601,48 @@ function allMemberFlowers(m) {
     .filter(Boolean)
     .map(f => ({ flower: f, bonus: flowerBonus(m, f.id), total: (f.points || 0) + flowerBonus(m, f.id) }))
     .sort((a, b) => cmp(b.total, a.total) || cmp(b.flower.points || 0, a.flower.points || 0) || cmp(a.flower.name, b.flower.name));
+}
+function memberQuestScoreRange(m) {
+  const multiplier = optNum(state.data.settings.maxMultiplier) || 1;
+  const scores = (m.flowerIds || [])
+    .map(flowerById)
+    .filter(Boolean)
+    .map(f => (f.points || 0) * multiplier + flowerBonus(m, f.id))
+    .sort((a, b) => a - b);
+  if (!scores.length) return { min: 0, medium: 0, max: 0 };
+  const mid = Math.floor(scores.length / 2);
+  const medium = scores.length % 2
+    ? scores[mid]
+    : Math.round((scores[mid - 1] + scores[mid]) / 2);
+  return { min: scores[0], medium, max: scores[scores.length - 1] };
+}
+function currentWeekProjectionRows(c) {
+  if (!c) return [];
+  const resultMap = new Map((c.memberResults || []).map(r => [r.memberId, normalizedMemberResult(r)]));
+  const resultScore = memberResultsScoreSummary(c.memberResults || []);
+  const currentScore = resultScore.hasScores ? resultScore.total : (optNum(c.ourScore) ?? 0);
+  const targets = [
+    optNum(state.data.settings.questsMin) || 18,
+    optNum(state.data.settings.questsMax) || 24,
+  ].filter((target, i, arr) => target > 0 && arr.indexOf(target) === i);
+
+  return targets.map(target => {
+    const projected = { min: currentScore, medium: currentScore, max: currentScore };
+    let memberCount = 0, questsNeeded = 0;
+    for (const member of state.data.members.filter(m => m.active)) {
+      const result = resultMap.get(member.id) || {};
+      const completed = Math.max(0, optNum(result.questsCompleted) ?? 0);
+      const remaining = Math.max(0, target - completed);
+      if (!remaining) continue;
+      const range = memberQuestScoreRange(member);
+      memberCount += 1;
+      questsNeeded += remaining;
+      projected.min += remaining * range.min;
+      projected.medium += remaining * range.medium;
+      projected.max += remaining * range.max;
+    }
+    return { target, currentScore, memberCount, questsNeeded, ...projected };
+  });
 }
 function questFlowerReportRows(c) {
   const groups = new Map();

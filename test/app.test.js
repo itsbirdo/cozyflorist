@@ -58,6 +58,8 @@ globalThis.__guildHq = {
   autoPlacementPatch,
   scoreBarWidth,
   scoreComparisonEntries,
+  memberQuestScoreRange,
+  currentWeekProjectionRows,
   singleOwnerFlowerRows,
   singleOwnerFlowerReportExportRows,
   singleOwnerFlowerReportCsv,
@@ -464,6 +466,40 @@ test('current competition remaining list sorts by name, quests, or average score
   assert.equal(
     JSON.stringify(sortedCompetitionRemainingRows(rows).map(row => row.member.name)),
     JSON.stringify(['Mia', 'Zoe', 'Ada']),
+  );
+});
+
+test('current week projection estimates min medium and max totals for 18 and 24 quests', () => {
+  const { state, currentWeekProjectionRows, memberQuestScoreRange } = loadApp();
+  state.data = fullData({
+    settings: { questsMin: 18, questsMax: 24, maxMultiplier: 2 },
+    members: [
+      { id: 'm1', name: 'Ada', active: true, role: 'Member', questCount: 18, flowerIds: ['rose', 'lily'], flowerBonuses: { rose: 3 } },
+      { id: 'm2', name: 'Zoe', active: true, role: 'Member', questCount: 18, flowerIds: ['tulip'], flowerBonuses: {} },
+      { id: 'm3', name: 'Mia', active: false, role: 'Member', questCount: 18, flowerIds: ['rose'], flowerBonuses: {} },
+    ],
+    flowers: [
+      { id: 'rose', name: 'Rose', rarity: 'UR', points: 30 },
+      { id: 'lily', name: 'Lily', rarity: 'R', points: 20 },
+      { id: 'tulip', name: 'Tulip', rarity: 'SR', points: 25 },
+    ],
+  });
+
+  assert.equal(
+    JSON.stringify(memberQuestScoreRange(state.data.members[0])),
+    JSON.stringify({ min: 40, medium: 52, max: 63 }),
+  );
+  assert.equal(
+    JSON.stringify(currentWeekProjectionRows({
+      memberResults: [
+        { memberId: 'm1', finalScore: 500, questsCompleted: 10, questDetail: [] },
+        { memberId: 'm2', finalScore: 900, questsCompleted: 18, questDetail: [] },
+      ],
+    })),
+    JSON.stringify([
+      { target: 18, currentScore: 1400, memberCount: 1, questsNeeded: 8, min: 1720, medium: 1816, max: 1904 },
+      { target: 24, currentScore: 1400, memberCount: 2, questsNeeded: 20, min: 2260, medium: 2428, max: 2582 },
+    ]),
   );
 });
 
