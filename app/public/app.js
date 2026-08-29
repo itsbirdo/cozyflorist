@@ -464,6 +464,7 @@ function renderDashboard() {
            ${latest.ourRankTitle ? `· ${esc(latest.ourRankTitle)}` : ''}</p>
         ${top ? `<p class="muted">Top rival: ${esc(top.name)} (${fmtNum(top.score)})</p>` : ''}
         <h3>Quests remaining</h3>
+        <!-- Put remaining quests first so mobile scans start with the action item. -->
         ${comp.remaining.length ? `
           <label class="mobile-only mobile-sort">Sort
             <select id="competitionremainingsort">
